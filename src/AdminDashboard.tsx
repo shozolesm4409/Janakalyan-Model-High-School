@@ -454,6 +454,27 @@ export const AdminDashboard: React.FC = () => {
           ? (customForms.find(f => f.formId === selectedBuilderFormId)?.createdAt || new Date().toISOString())
           : new Date().toISOString()
       }, { merge: true });
+
+      // Automatically sync a beautiful banner to the gallery indicating custom form is live
+      const companionGalleryId = `gallery_form_${fId}`;
+      const customFormCategoryName = `আবেদন ফরম: ${formTitle.trim()}`;
+      
+      const elegantUnsplashBanners = [
+        "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1507537297725-24a1c029d3ca?auto=format&fit=crop&w=800&q=80"
+      ];
+      const selectedThemeBanner = elegantUnsplashBanners[fId.length % elegantUnsplashBanners.length];
+
+      await setDoc(doc(db, 'gallery', companionGalleryId), {
+        galleryId: companionGalleryId,
+        title: `${formTitle.trim()} (সেশন ফর্ম)`,
+        category: customFormCategoryName,
+        imgUrl: selectedThemeBanner,
+        uploadedBy: currentUser?.name || 'Admin',
+        uploadedAt: new Date().toISOString()
+      }, { merge: true });
       
       if (formRegisterNowActive) {
         // Automatically deactivate registerNowActive flag for other existing custom forms
@@ -1068,60 +1089,107 @@ export const AdminDashboard: React.FC = () => {
 
       {/* 2. Registrations Approval screen */}
       {activeSubTab === 'registrations' && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-xl border border-gray-150 p-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center space-x-2">
-              <span>অপেক্ষারত আবেদন আবেদনকারী তালিকা (Verification Queue)</span>
-              <span className="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-full font-bold">
-                {pendingRegistrations}
-              </span>
-            </h2>
+        <div id="admin-registrations-tab" className="space-y-6 animate-fade-in">
+          <div className="bg-white rounded-xl border border-gray-150 p-6 shadow-xs">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-base font-extrabold text-gray-900 mb-1 flex items-center space-x-2">
+                  <span>আবেদনপত্র ভেরিফিকেশন (Registration Queue)</span>
+                  <span className="bg-amber-100 text-amber-800 text-xs px-2.5 py-0.5 rounded-full font-bold">
+                    {pendingRegistrations} অপেক্ষমান
+                  </span>
+                </h2>
+                <p className="text-xs text-gray-400 font-medium">প্রাক্তনী ভর্তি আবেদনসমূহ ও পেমেন্ট ট্রানজেকশন প্রুফ যাচাইকরণ</p>
+              </div>
+            </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm divide-y">
-                <thead className="bg-gray-50 text-xs font-semibold text-gray-500 uppercase">
+            <div className="overflow-x-auto rounded-lg border border-gray-100">
+              <table className="w-full text-left text-xs divide-y">
+                <thead className="bg-gray-50 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
                   <tr>
-                    <th className="py-3.5 px-4">রেজিস্ট্রেশন ID</th>
-                    <th className="py-3.5 px-4">পূর্ণ নাম</th>
-                    <th className="py-3.5 px-4">এসএসসি বছর</th>
-                    <th className="py-3.5 px-4">গেস্ট</th>
-                    <th className="py-3.5 px-4">টি-শার্ট</th>
-                    <th className="py-3.5 px-4">রেকর্ড ট্র্যাকার</th>
-                    <th className="py-3.5 px-4 text-right">ম্যানেজ</th>
+                    <th className="py-3 px-4">শনাক্তকারী ID</th>
+                    <th className="py-3 px-4">আবেদনকারীর বিবরণ</th>
+                    <th className="py-3 px-4">ব্যাচ</th>
+                    <th className="py-3 px-4">গেস্ট সংখ্যা</th>
+                    <th className="py-3 px-4">টি-শার্ট সাইজ</th>
+                    <th className="py-3 px-4">স্ট্যাটাস</th>
+                    <th className="py-3 px-4 text-right">ম্যানেজ</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-gray-100 bg-white">
                   {registrations.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="text-center py-8 text-gray-400 font-mono">কোন আবেদন জমা হয়নি।</td>
+                      <td colSpan={7} className="text-center py-10 text-gray-400 font-medium">
+                        কোন নিবেশন বা আবেদন জমা পাওয়া যায়নি।
+                      </td>
                     </tr>
                   ) : (
                     registrations.map((reg) => {
-                      const matchingPay = payments.find(p => p.registrationId === reg.registrationId);
+                      const regUser = allUsers.find(u => u.uid === reg.userId);
+                      const isPending = reg.approvalStatus === 'pending';
+                      
                       return (
-                        <tr key={reg.registrationId} className="hover:bg-gray-50/50 transition duration-150">
-                          <td className="py-3.5 px-4 font-mono font-medium text-gray-900">{reg.registrationId}</td>
-                          <td className="py-3.5 px-4 font-semibold text-gray-800">{reg.personalInfo?.fatherName ? reg.personalInfo?.fatherName.slice(0,1)==='a' ? 'Demo':'' : ''} {currentUser?.name && reg.userId === currentUser.uid ? `${currentUser.name} (আপনি)` : `Alumni #${reg.registrationId.slice(-4)}`}</td>
-                          <td className="py-3.5 px-4 font-mono font-medium">{reg.academicInfo?.passingYear || '2015'}</td>
-                          <td className="py-3.5 px-4 font-mono text-gray-500">{reg.participationInfo?.guestCount || 0} জন</td>
-                          <td className="py-3.5 px-4 font-mono font-semibold text-primary">{reg.participationInfo?.tshirtSize || 'XL'}</td>
+                        <tr key={reg.registrationId} className="hover:bg-gray-50/40 transition">
+                          <td className="py-3.5 px-4 font-mono font-bold text-gray-700">
+                            #{reg.registrationId.substring(0, 8).toUpperCase()}
+                          </td>
                           <td className="py-3.5 px-4">
-                            <span className={`inline-flex items-center text-xs px-2.5 py-0.5 rounded-full font-semibold ${
-                              reg.approvalStatus === 'approved' ? 'bg-green-15 text-green-700 bg-green-50' :
-                              reg.approvalStatus === 'rejected' ? 'bg-red-15 text-red-700 bg-red-50' :
-                              'bg-amber-15 text-amber-700 bg-amber-50'
-                            }`}>
-                              {reg.approvalStatus}
+                            <div className="font-bold text-gray-800">{regUser?.name || 'পরিচিত ইউজার'}</div>
+                            <div className="text-[10px] text-gray-400 font-mono mt-0.5">{regUser?.email || 'N/A'}</div>
+                          </td>
+                          <td className="py-3.5 px-4 font-mono text-gray-600">
+                            {reg.academicInfo?.passingYear || "N/A"}
+                          </td>
+                          <td className="py-3.5 px-4 font-mono text-gray-600">
+                            {reg.participationInfo?.guestCount ?? 0} জন
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className="bg-gray-150 text-gray-800 font-bold px-2 py-0.5 rounded text-[10px] uppercase font-mono border">
+                              {reg.participationInfo?.tshirtSize || "M"}
                             </span>
                           </td>
-                          <td className="py-3.5 px-4 text-right space-x-1">
-                            <button
-                              onClick={() => { setSelectedReg(reg); setSelectedPay(matchingPay || null); }}
-                              className="bg-primary hover:bg-primary/95 text-white text-xs font-bold px-3 py-1.5 rounded transition inline-flex items-center space-x-1"
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                              <span>পর্যালোচনা (Review)</span>
-                            </button>
+                          <td className="py-3.5 px-4">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                              reg.approvalStatus === 'approved' 
+                                ? 'bg-green-100 text-green-800' 
+                                : reg.approvalStatus === 'rejected' 
+                                ? 'bg-red-100 text-red-800' 
+                                : 'bg-amber-100 text-amber-800'
+                            }`}>
+                              {reg.approvalStatus === 'approved' 
+                                ? 'অনুমোদিত' 
+                                : reg.approvalStatus === 'rejected' 
+                                ? 'উপেক্ষিত' 
+                                : 'যাচাইধীন'}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end space-x-1.5">
+                              <button
+                                onClick={() => setSelectedReg(reg)}
+                                className="text-indigo-600 font-bold hover:bg-indigo-50 px-2.5 py-1 rounded border border-indigo-150 transition cursor-pointer"
+                              >
+                                বিস্তারিত
+                              </button>
+                              {isPending && (
+                                <>
+                                  <button
+                                    onClick={() => handleApproveRegistration(reg.registrationId)}
+                                    className="bg-green-600 hover:bg-green-700 text-white font-bold px-2.5 py-1 rounded flex items-center space-x-1 cursor-pointer transition"
+                                  >
+                                    <Check className="h-3.5 w-3.5" />
+                                    <span>এপ্রুভ</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleRejectRegistration(reg.registrationId)}
+                                    className="bg-red-600 hover:bg-red-700 text-white font-bold px-2.5 py-1 rounded flex items-center space-x-1 cursor-pointer transition"
+                                  >
+                                    <X className="h-3.5 w-3.5" />
+                                    <span>বাতিল</span>
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1132,429 +1200,535 @@ export const AdminDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Action modal for single profile review details */}
+          {/* Detailed Registration Info Modal */}
           {selectedReg && (
-            <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-2xl max-w-2xl w-full text-sm leading-relaxed"
-              >
-                {/* Modal Title */}
-                <div className="bg-primary text-white p-5 flex justify-between items-center">
-                  <h3 className="font-display font-bold text-lg">আবেদনপত্র পর্যালোচনা ও পেমেন্ট স্লিপ মেলানো</h3>
-                  <button onClick={() => setSelectedReg(null)} className="text-white hover:text-secondary font-bold text-base bg-white/10 px-2 py-1 rounded">X</button>
+            <div id="registration-detail-modal" className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div 
+                onClick={() => setSelectedReg(null)} 
+                className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs"
+              />
+              
+              <div className="bg-white rounded-xl w-full max-w-3xl border shadow-2xl relative z-10 overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="p-6 border-b border-gray-150 flex justify-between items-center bg-radial-to-r from-blue-50/10 to-indigo-50/10">
+                  <div>
+                    <span className="text-[10px] bg-indigo-100 text-indigo-800 rounded font-bold uppercase px-2 py-0.5 tracking-wider">
+                      নিবন্ধন বিবরণী কার্ড
+                    </span>
+                    <h3 className="text-base font-extrabold text-gray-900 mt-1">
+                      {allUsers.find(u => u.uid === selectedReg.userId)?.name || 'আবেদনকারী'} এর বিবরণী
+                    </h3>
+                  </div>
+                  <button 
+                    onClick={() => setSelectedReg(null)}
+                    className="p-1 px-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded transition"
+                  >
+                    X
+                  </button>
                 </div>
 
-                <div className="p-6 space-y-6 max-h-[85vh] overflow-y-auto">
-                  {/* Detailed profile properties */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <div className="text-[10px] font-bold text-gray-400 uppercase">পিতার নাম</div>
-                      <div className="font-semibold text-gray-800">{selectedReg.personalInfo?.fatherName || 'উল্লেখ নেই'}</div>
+                <div className="p-6 overflow-y-auto space-y-6 text-xs">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* 1. Personal Info */}
+                    <div className="bg-gray-50 p-4 rounded-lg border space-y-2.5">
+                      <h4 className="font-bold text-gray-800 border-b pb-1 font-sans">ব্যক্তিগত তথ্য (Personal)</h4>
+                      <table className="w-full">
+                        <tbody>
+                          <tr className="border-b border-gray-100"><td className="py-1 text-gray-400">পিতার নাম:</td><td className="py-1 font-bold text-gray-805">{selectedReg.personalInfo?.fatherName || 'N/A'}</td></tr>
+                          <tr className="border-b border-gray-100"><td className="py-1 text-gray-400">মাতার নাম:</td><td className="py-1 font-bold text-gray-805">{selectedReg.personalInfo?.motherName || 'N/A'}</td></tr>
+                          <tr className="border-b border-gray-100"><td className="py-1 text-gray-400">লিঙ্গ:</td><td className="py-1 font-bold text-gray-805">{selectedReg.personalInfo?.gender || 'N/A'}</td></tr>
+                          <tr className="border-b border-gray-100"><td className="py-1 text-gray-400">রক্তের গ্রুপ:</td><td className="py-1 font-bold text-red-600">{selectedReg.personalInfo?.bloodGroup || 'N/A'}</td></tr>
+                          <tr><td className="py-1 text-gray-400">জন্ম তারিখ:</td><td className="py-1 font-bold text-gray-805">{selectedReg.personalInfo?.dob || 'N/A'}</td></tr>
+                        </tbody>
+                      </table>
                     </div>
-                    <div>
-                      <div className="text-[10px] font-bold text-gray-400 uppercase">মাতার নাম</div>
-                      <div className="font-semibold text-gray-800">{selectedReg.personalInfo?.motherName || 'উল্লেখ নেই'}</div>
+
+                    {/* 2. Academic Info */}
+                    <div className="bg-gray-50 p-4 rounded-lg border space-y-2.5">
+                      <h4 className="font-bold text-gray-800 border-b pb-1 font-sans">একাডেমিক বিবরণ (Academic)</h4>
+                      <table className="w-full">
+                        <tbody>
+                          <tr className="border-b border-gray-100"><td className="py-1 text-gray-400">SSC বছর:</td><td className="py-1 font-mono font-bold text-gray-805">{selectedReg.academicInfo?.passingYear || 'N/A'}</td></tr>
+                          <tr className="border-b border-gray-100"><td className="py-1 text-gray-400">ক্লাস রোল:</td><td className="py-1 font-mono font-bold text-gray-805">{selectedReg.academicInfo?.roll || 'N/A'}</td></tr>
+                          <tr className="border-b border-gray-100"><td className="py-1 text-gray-400">শাখা/সেকশন:</td><td className="py-1 font-bold text-gray-805">{selectedReg.academicInfo?.section || 'N/A'}</td></tr>
+                          <tr><td className="py-1 text-gray-400">বর্তমান পেশা:</td><td className="py-1 font-bold text-gray-805">{selectedReg.academicInfo?.currentOccupation || 'N/A'}</td></tr>
+                        </tbody>
+                      </table>
                     </div>
-                    <div>
-                      <div className="text-[10px] font-bold text-gray-400 uppercase">এসএসসি রোল ও সেকশন</div>
-                      <div className="font-semibold text-gray-800">রোল: {selectedReg.academicInfo?.roll || 'N/A'}, শাখা: {selectedReg.academicInfo?.section || 'N/A'}</div>
+
+                    {/* 3. Contact Info */}
+                    <div className="bg-gray-50 p-4 rounded-lg border col-span-1 md:col-span-2 space-y-2.5">
+                      <h4 className="font-bold text-gray-800 border-b pb-1 font-sans">যোগাযোগের বিবরণ (Contact)</h4>
+                      <table className="w-full">
+                        <tbody>
+                          <tr className="border-b border-gray-100"><td className="py-1 text-gray-400 w-1/4">বিকল্প মোবাইল:</td><td className="py-1 font-bold text-gray-805">{selectedReg.contactInfo?.alternateMobile || 'N/A'}</td></tr>
+                          <tr className="border-b border-gray-100"><td className="py-1 text-gray-400">বর্তমান ঠিকানা:</td><td className="py-1 text-gray-805">{selectedReg.contactInfo?.presentAddress || 'N/A'}</td></tr>
+                          <tr><td className="py-1 text-gray-400 font-sans">স্থায়ী ঠিকানা:</td><td className="py-1 text-gray-805">{selectedReg.contactInfo?.permanentAddress || 'N/A'}</td></tr>
+                        </tbody>
+                      </table>
                     </div>
-                    <div>
-                      <div className="text-[10px] font-bold text-gray-400 uppercase">বর্তমান পেশা</div>
-                      <div className="font-semibold text-gray-800">{selectedReg.academicInfo?.currentOccupation || 'N/A'}</div>
-                    </div>
-                    <div className="col-span-full">
-                      <div className="text-[10px] font-bold text-gray-400 uppercase">যোগাযোগ ঠিকানা</div>
-                      <div className="font-semibold text-gray-800">{selectedReg.contactInfo?.presentAddress || 'N/A'}</div>
+
+                    {/* 4. Payment details */}
+                    <div className="bg-gray-50 p-4 rounded-lg border col-span-1 md:col-span-2 space-y-3">
+                      <h4 className="font-bold text-gray-800 border-b pb-1 flex items-center space-x-1 font-sans">
+                        <CreditCard className="h-4 w-4 text-primary" />
+                        <span>পেমেন্ট ট্রানজেকশন ট্র্যাকিং (Transaction Info)</span>
+                      </h4>
+                      {(() => {
+                        const pm = payments.find(p => p.registrationId === selectedReg.registrationId);
+                        if (!pm) {
+                          return <div className="text-amber-600 font-bold">এই আবেদনের বিপরীতে কোন পেমেন্ট রেকর্ড পাওয়া যায়নি।</div>;
+                        }
+                        return (
+                          <div className="space-y-4 font-sans">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 border-b pb-3 border-gray-200">
+                              <div>
+                                <span className="text-gray-400 block pb-0.5">টাকার পরিমাণ (Amount)</span>
+                                <strong className="text-[13px] text-gray-900 font-black block">{pm.amount} ৳</strong>
+                              </div>
+                              <div>
+                                <span className="text-gray-400 block pb-0.5">ট্রানজেকশন ID (TrxID)</span>
+                                <strong className="text-xs text-indigo-700 font-bold block uppercase font-mono">{pm.trxId}</strong>
+                              </div>
+                              <div>
+                                <span className="text-gray-400 block pb-0.5">পেমেন্ট স্টেট</span>
+                                <strong className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full inline-block mt-0.5 ${
+                                  pm.paymentStatus === 'approved' ? 'bg-green-100 text-green-800' : pm.paymentStatus === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
+                                }`}>{pm.paymentStatus}</strong>
+                              </div>
+                              <div>
+                                <span className="text-gray-400 block pb-0.5">তারিখ</span>
+                                <strong className="text-[10px] text-gray-500 font-mono block">
+                                  {new Date(pm.createdAt).toLocaleString()}
+                                </strong>
+                              </div>
+                            </div>
+
+                            {/* Base64 Payment proof image if exists */}
+                            {pm.paymentProof && (
+                              <div className="space-y-1.5">
+                                <span className="text-gray-400 font-bold block">পেমেন্ট স্ক্রিনশট / প্রমাণ (Payment Proof Screenshot):</span>
+                                <div className="border border-gray-200 rounded-lg overflow-hidden bg-white p-2">
+                                  <img 
+                                    src={pm.paymentProof} 
+                                    alt="Payment proof screenshot" 
+                                    referrerPolicy="no-referrer"
+                                    className="max-h-[220px] object-contain mx-auto rounded"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
+                </div>
 
-                  {/* Payment Receipt display */}
-                  {selectedPay ? (
-                    <div className="border border-dashed border-gray-300 rounded-xl p-4 bg-gray-50 flex items-center justify-between gap-4">
-                      <div className="space-y-1">
-                        <div className="text-xs font-semibold text-pink-700 uppercase">লেনদেন (Transaction Receipt)</div>
-                        <div className="text-base font-extrabold text-gray-900 font-mono">ID: {selectedPay.trxId}</div>
-                        <div className="text-xs text-gray-500 font-mono">পরিমাণ: {selectedPay.amount} BDT</div>
-                      </div>
-                      
-                      {selectedPay.paymentProof && (
-                        <div>
-                          <img
-                            src={selectedPay.paymentProof}
-                            alt="Receipt"
-                            className="h-28 w-28 object-contain rounded border bg-white"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center py-4 bg-red-50 text-red-600 border border-red-200 rounded-xl flex items-center justify-center space-x-1">
-                      <AlertCircle className="h-4.5 w-4.5" />
-                      <span>ভুল ট্রানজেকশন - রিসিভ ফাইল পাওয়া যায়নি!</span>
-                    </div>
+                <div className="p-4 bg-gray-50 border-t border-gray-150 flex justify-end space-x-2 text-xs font-sans">
+                  <button 
+                    onClick={() => setSelectedReg(null)}
+                    className="px-4 py-2 border hover:bg-gray-150 rounded-lg font-bold cursor-pointer transition"
+                  >
+                    বন্ধ করুন
+                  </button>
+                  {selectedReg.approvalStatus === 'pending' && (
+                    <>
+                      <button
+                        onClick={() => handleRejectRegistration(selectedReg.registrationId)}
+                        className="bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2 rounded-lg cursor-pointer transition flex items-center space-x-1"
+                      >
+                        <X className="h-4 w-4" />
+                        <span>বাতিল করুন</span>
+                      </button>
+                      <button
+                        onClick={() => handleApproveRegistration(selectedReg.registrationId)}
+                        className="bg-green-600 hover:bg-green-700 text-white font-bold px-4 py-2 rounded-lg cursor-pointer transition flex items-center space-x-1"
+                      >
+                        <Check className="h-4 w-4" />
+                        <span>অনুমোদন করুন (Approve)</span>
+                      </button>
+                    </>
                   )}
-
-                  {/* Controls to approve or reject */}
-                  <div className="flex justify-end gap-3 border-t pt-5">
-                    <button
-                      onClick={() => handleRejectRegistration(selectedReg.registrationId)}
-                      className="bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 text-xs font-bold px-4 py-2.5 rounded transition"
-                    >
-                      আবেদন বাতিল (Reject)
-                    </button>
-                    <button
-                      onClick={() => handleApproveRegistration(selectedReg.registrationId)}
-                      className="bg-green-600 hover:bg-green-700 text-white text-xs font-extrabold px-6 py-2.5 rounded transition"
-                    >
-                      আবেদন অনুমোদন (Approve)
-                    </button>
-                  </div>
                 </div>
-              </motion.div>
+              </div>
             </div>
           )}
         </div>
       )}
 
-      {/* 3. Event Scheduling Segment */}
+      {/* 3. Event Program scheduler */}
       {activeSubTab === 'events' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* Add formal event */}
-          <div className="bg-white rounded-xl border border-gray-150 p-6 space-y-4 h-fit">
-            <h3 className="font-bold text-gray-800 pb-2 border-b">নতুন ইভেন্ট যুক্ত করুন (Scheduler)</h3>
+        <div id="admin-events-tab" className="grid grid-cols-1 xl:grid-cols-12 gap-8 animate-fade-in text-xs">
+          {/* Left Column: Create/Add Event Card */}
+          <div className="xl:col-span-5 bg-white rounded-xl border border-gray-150 p-6 shadow-xs space-y-4">
+            <div className="border-b pb-2">
+              <h3 className="font-bold text-gray-800 text-sm flex items-center space-x-1.5 font-sans">
+                <Calendar className="h-4 w-4 text-primary" />
+                <span>নতুন কর্মসূচী যোগ করুন (Add Event Program)</span>
+              </h3>
+            </div>
+
             <form onSubmit={handleAddEvent} className="space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-500">ইভেন্ট শিরোনাম *</label>
+                <label className="font-semibold text-gray-500 block">ইভেন্টের শিরোনাম (Event Title) *</label>
                 <input
                   type="text"
                   required
-                  placeholder="উদাঃ বর্ণাঢ্য র‍্যালি ও শোভাযাত্রা"
+                  placeholder="উদাঃ প্রাক্তনী মহাসম্মেলন ২০২৬ (Alumni Reunion)"
                   value={newEventTitle}
                   onChange={e => setNewEventTitle(e.target.value)}
-                  className="w-full border rounded-md px-3 py-1.5 text-sm"
+                  className="w-full border rounded px-3 py-1.5 focus:ring-1 focus:ring-primary font-sans"
                 />
               </div>
+
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-500">বিবরণ / এজেন্ডা</label>
-                <textarea
-                  placeholder="ইভেন্টের কর্মসূচী বিস্তারিত উল্লেখ করুন"
-                  value={newEventDesc}
-                  onChange={e => setNewEventDesc(e.target.value)}
-                  className="w-full border rounded-md px-3 py-1.5 text-sm"
-                  rows={3}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-500">তারিখ ও সময়সূচী *</label>
+                <label className="font-semibold text-gray-500 block">তারিখ ও সময় (Event Date & Time) *</label>
                 <input
                   type="text"
                   required
-                  placeholder="উদাঃ ২৫ ডিসেম্বর, সকাল ১০:০০ টা"
+                  placeholder="উদাঃ ২৫শে ডিসেম্বর, ২০২৬ সকাল ১০:০০ টা"
                   value={newEventDate}
                   onChange={e => setNewEventDate(e.target.value)}
-                  className="w-full border rounded-md px-3 py-1.5 text-sm"
+                  className="w-full border rounded px-3 py-1.5 focus:ring-1 focus:ring-primary font-sans"
                 />
               </div>
+
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-500">স্থান (Location)</label>
+                <label className="font-semibold text-gray-500 block">অনুষ্ঠান স্থল (Location/Venue)</label>
                 <input
                   type="text"
-                  placeholder="উদাঃ প্রধান খেলার মাঠ"
+                  placeholder="School Campus Grounds"
                   value={newEventLoc}
                   onChange={e => setNewEventLoc(e.target.value)}
-                  className="w-full border rounded-md px-3 py-1.5 text-sm"
+                  className="w-full border rounded px-3 py-1.5 focus:ring-1 focus:ring-primary font-sans"
                 />
               </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-gray-500 block">বিস্তারিত কর্মসূচী বিবরণ (Description)</label>
+                <textarea
+                  rows={4}
+                  placeholder="অনুষ্ঠানের বিস্তারিত সময়সূচী ও রুটিন গাইডলাইন এখানে লিখুন..."
+                  value={newEventDesc}
+                  onChange={e => setNewEventDesc(e.target.value)}
+                  className="w-full border rounded px-3 py-1.5 focus:ring-1 focus:ring-primary font-sans leading-relaxed"
+                />
+              </div>
+
               <button
                 type="submit"
-                className="w-full bg-primary hover:bg-primary/95 text-white py-2 rounded font-bold text-sm flex items-center justify-center space-x-1"
+                className="w-full bg-primary hover:bg-primary/95 text-white font-bold py-2 rounded-lg cursor-pointer transition flex items-center justify-center space-x-1 font-sans animate-fade-in"
               >
                 <Plus className="h-4 w-4" />
-                <span>ইভেন্ট শিডিউল করুন</span>
+                <span>কর্মসূচী সংরক্ষণ করুন (Add Event)</span>
               </button>
             </form>
           </div>
 
-          {/* List events dynamically with deleting option */}
-          <div className="lg:col-span-2 bg-white rounded-xl border border-gray-150 p-6 space-y-4">
-            <h3 className="font-bold text-gray-800 pb-2 border-b">সুবর্ণ জয়ন্তী ইভেন্ট ক্যালেন্ডার</h3>
-            <div className="space-y-4">
-              {events.map((event) => (
-                <div key={event.eventId} className="border rounded-lg p-4 flex items-start justify-between">
-                  <div className="space-y-1">
-                    <h4 className="font-bold text-gray-900 text-sm">{event.title}</h4>
-                    <p className="text-gray-500 text-xs font-sans">{event.description}</p>
-                    <div className="text-[10px] text-amber-700 font-semibold font-mono mt-2">{event.eventDate} | {event.location}</div>
-                  </div>
-                  <button
-                    onClick={() => handleDeleteEvent(event.eventId)}
-                    className="text-red-500 hover:text-red-700 p-1.5 bg-red-50 rounded"
-                    title="মুছে ফেলুন"
-                  >
-                    <Trash2 className="h-4.5 w-4.5" />
-                  </button>
+          {/* Right Column: Scheduled Event List */}
+          <div className="xl:col-span-7 space-y-4">
+            <div className="bg-white rounded-xl border border-gray-150 p-6 shadow-xs">
+              <h3 className="font-bold text-gray-800 text-sm border-b pb-2 mb-4 font-sans">নির্ধারিত ইভেন্ট সমূহ (Scheduled Events)</h3>
+              
+              {events.length === 0 ? (
+                <div className="text-center py-12 text-gray-400 font-medium font-sans">কোন কর্মসূচী বা ইভেন্ট এখনও শিডিউল করা হয়নি।</div>
+              ) : (
+                <div className="space-y-4 max-h-[580px] overflow-y-auto pr-1">
+                  {events.map((ev) => (
+                    <div key={ev.eventId} className="p-4 bg-gray-50 border rounded-xl hover:shadow-xs transition relative">
+                      <button 
+                        onClick={() => handleDeleteEvent(ev.eventId)}
+                        className="p-1 hover:bg-red-100 text-red-500 rounded absolute top-3 right-3 transition cursor-pointer"
+                        title="Delete Event"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                      
+                      <div className="space-y-1.5 max-w-[90%]">
+                        <h4 className="font-bold text-gray-950 text-sm leading-tight font-sans">{ev.title}</h4>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10.5px] text-gray-500 font-medium">
+                          <span className="flex items-center space-x-0.5">
+                            <Clock className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                            <span>{ev.eventDate}</span>
+                          </span>
+                          <span className="flex items-center space-x-0.5">
+                            <AlertCircle className="h-3.5 w-3.5 text-teal-600 shrink-0" />
+                            <span>ভেন্যু: {ev.location}</span>
+                          </span>
+                        </div>
+                        {ev.description && (
+                          <p className="text-gray-600 leading-relaxed font-sans mt-2 whitespace-pre-wrap">{ev.description}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           </div>
-
         </div>
       )}
 
-      {/* 4. Noticeboard Manager */}
+      {/* 4. Notices announcement screen */}
       {activeSubTab === 'notices' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          <div className="bg-white rounded-xl border border-gray-150 p-6 space-y-4 h-fit">
-            <h3 className="font-bold text-gray-800 pb-2 border-b">নতুন নোটিশ বা ঘোষণা বোর্ড</h3>
+        <div id="admin-notices-tab" className="grid grid-cols-1 xl:grid-cols-12 gap-8 animate-fade-in text-xs">
+          {/* Left Column: Create notice form */}
+          <div className="xl:col-span-5 bg-white rounded-xl border border-gray-150 p-6 shadow-xs space-y-4">
+            <h3 className="font-bold text-gray-800 text-sm flex items-center space-x-1.5 border-b pb-2 font-sans">
+              <Bell className="h-4 w-4 text-primary" />
+              <span>নতুন নোটিশ পাবলিশ করুন (Publish Notice)</span>
+            </h3>
+
             <form onSubmit={handleAddNotice} className="space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-500">নোটিশ শিরোনাম *</label>
+                <label className="font-semibold text-gray-500 block">নোটিশের শিরোনাম (Notice Title) *</label>
                 <input
                   type="text"
                   required
-                  placeholder="উদাঃ নিবন্ধন ফি কমানো হয়েছে"
+                  placeholder="উদাঃ নিবন্ধন ফি পরিশোধের সময়সীমা বৃদ্ধি প্রসংগে"
                   value={newNoticeTitle}
                   onChange={e => setNewNoticeTitle(e.target.value)}
-                  className="w-full border rounded-md px-3 py-1.5 text-sm"
+                  className="w-full border rounded px-3 py-1.5 focus:ring-1 focus:ring-primary font-sans"
                 />
               </div>
+
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-500">ঘোষণা টেক্সট বিস্তারিত *</label>
+                <label className="font-semibold text-gray-500 block">নোটিশ বা বার্তার বিস্তারিত বিবরণ (Notice Message Content) *</label>
                 <textarea
                   required
-                  placeholder="নোটিশের বিস্তারিত অংশ টাইপ করুন"
+                  rows={6}
+                  placeholder="নোটিশের বিস্তারিত ঘোষণা ঘোষণা অংশসমূহ স্পষ্টভাবে এখানে উল্লেখ করুন..."
                   value={newNoticeDesc}
                   onChange={e => setNewNoticeDesc(e.target.value)}
-                  className="w-full border rounded-md px-3 py-1.5 text-sm"
-                  rows={5}
+                  className="w-full border rounded px-3 py-1.5 focus:ring-1 focus:ring-primary font-sans leading-relaxed"
                 />
               </div>
+
               <button
                 type="submit"
-                className="w-full bg-primary hover:bg-primary/95 text-white py-2 rounded font-bold text-sm flex items-center justify-center space-x-1"
+                className="w-full bg-primary hover:bg-primary/95 text-white font-bold py-2 rounded-lg cursor-pointer transition flex items-center justify-center space-x-1 font-sans"
               >
                 <Plus className="h-4 w-4" />
-                <span>নোটিশ পাবলিশ করুন</span>
+                <span>নোটিশ প্রকাশ করুন (Publish Announcement)</span>
               </button>
             </form>
           </div>
 
-          <div className="lg:col-span-2 bg-white rounded-xl border border-gray-150 p-6 space-y-4">
-            <h3 className="font-bold text-gray-800 pb-2 border-b">পাবলিশড স্কুলের নোটিশ সমূহ</h3>
-            <div className="space-y-4">
-              {notices.map((notice) => (
-                <div key={notice.noticeId} className="border rounded-lg p-4 flex items-start justify-between">
-                  <div className="space-y-1">
-                    <span className="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold font-mono">
-                      প্রকাশ: {notice.publishDate}
-                    </span>
-                    <h4 className="font-bold text-gray-900 text-sm mt-1">{notice.title}</h4>
-                    <p className="text-gray-500 text-xs whitespace-pre-line leading-relaxed mt-1 font-sans">{notice.description}</p>
-                  </div>
-                  <button
-                    onClick={() => handleDeleteNotice(notice.noticeId)}
-                    className="text-red-500 hover:text-red-700 p-1.5 bg-red-50 rounded shrink-0"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+          {/* Right Column: Published Notices board */}
+          <div className="xl:col-span-7 space-y-4">
+            <div className="bg-white rounded-xl border border-gray-150 p-6 shadow-xs">
+              <h3 className="font-bold text-gray-800 text-sm border-b pb-2 mb-4 font-sans">প্রকাশিত নোটিশবোর্ড (Published Notices)</h3>
+
+              {notices.length === 0 ? (
+                <div className="text-center py-12 text-gray-400 font-medium font-sans">কোন নোটিশ বা ঘোষণা এখনো প্রকাশিত করা হয়নি।</div>
+              ) : (
+                <div className="space-y-4 max-h-[580px] overflow-y-auto pr-1">
+                  {notices.map((n) => (
+                    <div key={n.noticeId} className="p-4 bg-gray-50 border rounded-xl hover:shadow-xs transition relative">
+                      <button 
+                        onClick={() => handleDeleteNotice(n.noticeId)}
+                        className="p-1 hover:bg-red-100 text-red-500 rounded absolute top-3 right-3 transition cursor-pointer"
+                        title="Delete Notice"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+
+                      <div className="space-y-1.5 max-w-[90%]">
+                        <strong className="text-gray-950 font-bold block text-sm leading-tight font-sans">{n.title}</strong>
+                        <span className="text-[9px] bg-slate-200 text-slate-700 font-mono font-bold px-1.5 py-0.5 rounded tracking-wide uppercase">
+                          তারিখ: {n.publishDate}
+                        </span>
+                        <p className="text-gray-600 font-sans mt-2 whitespace-pre-wrap leading-relaxed border-t pt-2 mt-2">{n.description}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           </div>
-
         </div>
       )}
 
-      {/* 5. Photographic Gallery desk */}
+      {/* 5. Memory Photo gallery subtab */}
       {activeSubTab === 'gallery' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          <div className="bg-white rounded-xl border border-gray-150 p-6 space-y-4 h-fit">
-            <h3 className="font-bold text-gray-800 pb-2 border-b">স্মৃতি গ্যালারিতে ছবি আপলোড</h3>
+        <div id="admin-gallery-tab" className="grid grid-cols-1 xl:grid-cols-12 gap-8 animate-fade-in text-xs">
+          {/* Left Column Upload tools */}
+          <div className="xl:col-span-5 bg-white rounded-xl border border-gray-150 p-6 shadow-xs space-y-4">
+            <h3 className="font-bold text-gray-800 text-sm border-b pb-2 flex items-center space-x-1.5 font-sans">
+              <Image className="h-4 w-4 text-primary" />
+              <span>গ্যালারিতে নতুন ছবি আপলোড করুন</span>
+            </h3>
+
             <form onSubmit={handleAddGallery} className="space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-500">ছবির টাইটেল / ক্যাপশন *</label>
+                <label className="font-semibold text-gray-400 block pb-1">ছবির শিরোনাম (Photo Title) *</label>
                 <input
                   type="text"
                   required
-                  placeholder="উদাঃ ২য় প্রীতি পুনর্মিলনী ১৯৮৫"
+                  placeholder="উদাঃ প্রথম রিইউনিয়ন উদ্বোধনী স্মৃতি"
                   value={newGalleryTitle}
                   onChange={e => setNewGalleryTitle(e.target.value)}
-                  className="w-full border rounded-md px-3 py-1.5 text-sm"
+                  className="w-full border rounded px-3 py-1.5 focus:ring-1 focus:ring-primary font-sans text-xs"
                 />
               </div>
+
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-500">ভ্যালু ক্যাটাগরি (Album Category)</label>
+                <label className="font-semibold text-gray-400 block pb-1">ক্যাটাগরি বা অ্যালবাম (Album Category)</label>
                 <select
                   value={newGalleryCat}
                   onChange={e => setNewGalleryCat(e.target.value)}
-                  className="w-full border rounded-md px-3 py-1.5 text-sm"
+                  className="w-full border rounded px-3 py-1.5 bg-white text-xs font-sans"
                 >
-                  <option value="Historic Campus">ঐতিহাসিক ক্যাম্পাস (Historic Campus)</option>
-                  <option value="Reunions">রিইউনিয়ন (Reunions)</option>
-                  <option value="Old Memories">পুরনো ডায়েরী স্মৃতিকথা</option>
-                  <option value="Golden Jubilee">সুবর্ণ জয়ন্তী উৎসব ২০২৬</option>
+                  <option value="Golden Jubilee">সুবর্ণ જન્મজয়নন্তী (Golden Jubilee)</option>
+                  <option value="Class Reunion">শ্রেণী পুনর্মিলনী (Class Reunion)</option>
+                  <option value="Sports & Culture">খেলাধুলা ও সংস্কৃতি</option>
+                  <option value="Campus Memory">ক্যাম্পাসের স্মৃতিপট</option>
+                  <option value="Others">অন্যান্য অ্যালবাম</option>
                 </select>
               </div>
+
+              {/* Base64 file upload input */}
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-gray-500">ছবির ওয়েব লিংক URL / Base64</label>
+                <label className="font-semibold text-gray-400 block pb-1 font-sans">ছবি সিলেক্ট করুন (Choose Photo) *</label>
                 <input
-                  type="url"
+                  type="file"
                   required
-                  placeholder="পেস্ট করুন ছবির ইউনিক লিংক"
-                  value={newGalleryImg}
-                  onChange={e => setNewGalleryImg(e.target.value)}
-                  className="w-full border rounded-md px-3 py-1.5 text-xs text-slate-500 font-mono"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setNewGalleryImg(reader.result as string);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="w-full border p-1 rounded bg-gray-50 file:mr-2 file:py-1 file:px-2 file:border-0 file:rounded file:bg-primary file:text-white file:font-semibold file:cursor-pointer"
                 />
-                <p className="text-[10px] text-gray-400">Unsplash বা অন্য কোন ফ্রি হোস্ট করা ওয়েব ছবির লিংক দিন।</p>
+                
+                {/* Image preview */}
+                {newGalleryImg && (
+                  <div className="border border-indigo-150 rounded-lg overflow-hidden bg-gray-50 p-1">
+                    <span className="text-[10px] text-indigo-600 block mb-1">Image Preview:</span>
+                    <img 
+                      src={newGalleryImg} 
+                      alt="Upload preview" 
+                      referrerPolicy="no-referrer"
+                      className="max-h-[140px] w-full object-contain mx-auto rounded animate-fade-in"
+                    />
+                  </div>
+                )}
               </div>
+
               <button
                 type="submit"
-                className="w-full bg-primary hover:bg-primary/95 text-white py-2 rounded font-bold text-sm flex items-center justify-center space-x-1"
+                className="w-full bg-primary hover:bg-primary/95 text-white font-bold py-2 rounded-lg cursor-pointer transition flex items-center justify-center space-x-1 font-sans"
               >
                 <Plus className="h-4 w-4" />
-                <span>মৌল স্মৃতি গ্যালারি জোড়ানো</span>
+                <span>অ্যালবামে যুক্ত করুন (Upload Photo)</span>
               </button>
             </form>
           </div>
 
-          <div className="lg:col-span-2 bg-white rounded-xl border border-gray-150 p-6 space-y-4">
-            <h3 className="font-bold text-gray-800 pb-2 border-b">বর্তমান ফটো গ্যালারি কালেকশন</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {gallery.map((item) => (
-                <div key={item.galleryId} className="border rounded-lg overflow-hidden flex items-center justify-between p-2">
-                  <div className="flex items-center space-x-3 truncate">
-                    <img
-                      src={item.image}
-                      alt={item.title}
-                      className="h-14 w-20 object-cover rounded border"
-                    />
-                    <div className="truncate text-xs">
-                      <span className="text-[9px] bg-primary/10 text-primary font-mono tracking-wide rounded-full px-2 py-0.5">{item.category}</span>
-                      <h4 className="font-bold text-gray-800 truncate mt-1">{item.title}</h4>
+          {/* Right Column Album feed */}
+          <div className="xl:col-span-7 bg-white rounded-xl border border-gray-150 p-6 shadow-xs">
+            <h3 className="font-bold text-gray-800 text-sm border-b pb-2 mb-4 font-sans">গ্যালারি অ্যালবাম (Photo Gallery Feed)</h3>
+
+            {gallery.length === 0 ? (
+              <div className="text-center py-12 text-gray-400 font-medium font-sans">গ্যালারিতে এখনও কোনো ছবি আপলোড করা হয়নি।</div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[580px] overflow-y-auto pr-1">
+                {gallery.map((g) => (
+                  <div key={g.galleryId} className="group bg-gray-50 border rounded-xl overflow-hidden shadow-xs hover:shadow-md transition relative font-sans">
+                    <button 
+                      onClick={() => handleDeleteGallery(g.galleryId)}
+                      className="p-1 bg-white/80 hover:bg-red-500 hover:text-white text-red-500 rounded-full shadow-xs absolute top-2 right-2 z-10 font-bold text-xs cursor-pointer transition"
+                      title="Delete Photo"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+
+                    <div className="aspect-video w-full overflow-hidden bg-gray-100 flex items-center justify-center">
+                      <img 
+                        src={g.image} 
+                        alt={g.title} 
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover transition duration-300 group-hover:scale-105"
+                      />
+                    </div>
+
+                    <div className="p-3 leading-tight space-y-1">
+                      <strong className="text-gray-950 font-bold block text-xs truncate" title={g.title}>{g.title}</strong>
+                      <span className="text-[9px] bg-indigo-50 text-indigo-700 font-bold px-1.5 py-0.2 rounded-full inline-block">{g.category}</span>
                     </div>
                   </div>
-                  <button
-                    onClick={() => handleDeleteGallery(item.galleryId)}
-                    className="text-red-500 hover:text-red-700 p-1.5 bg-red-50 rounded shrink-0 ml-2"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
-
         </div>
       )}
 
-      {/* ========================================================================================= */}
-      {/* 6. DYNAMIC FORM BUILDER PANEL */}
-      {/* ========================================================================================= */}
+      {/* 6. Dynamic Form Builder subtab */}
       {activeSubTab === 'form_builder' && (
-        <div id="admin-form-builder-panel" className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+        <div id="admin-form-builder-tab" className="grid grid-cols-1 xl:grid-cols-12 gap-8 animate-fade-in text-xs font-sans">
           
-          {/* LEFT COLUMN: FORMS DIRECTORY */}
+          {/* LEFT COLUMN: DYNAMIC DIRECTORIES & FORM CREATING/SETTINGS MODULATOR */}
           <div className="xl:col-span-5 space-y-6">
-            <div className="bg-white rounded-xl border border-gray-150 p-6 space-y-4">
-              <div className="flex justify-between items-center pb-2 border-b">
-                <div className="leading-tight">
-                  <h3 className="font-bold text-gray-800 text-sm">ডায়নামিক ফর্ম ডিরেক্টরি</h3>
-                  <span className="text-[10px] text-gray-400 font-mono">Create unlimited custom forms</span>
-                </div>
+            
+            {/* 1. Forms Listing and directory switcher */}
+            <div className="bg-white rounded-xl border border-gray-150 p-6 shadow-xs space-y-4">
+              <div className="flex justify-between items-center border-b pb-2.5">
+                <h4 className="font-bold text-gray-800 text-xs flex items-center space-x-1">
+                  <Sliders className="h-4 w-4 text-primary" />
+                  <span>কাস্টম ফর্ম ডিরেক্টরি (Forms Queue)</span>
+                </h4>
                 <button
                   onClick={handleStartNewForm}
-                  className="bg-primary hover:bg-primary/95 text-white text-xs font-bold py-1.5 px-3 rounded-lg flex items-center space-x-1 transition cursor-pointer"
+                  className="bg-primary hover:bg-primary/95 text-white font-bold py-1 px-2.5 rounded text-[10px] flex items-center space-x-0.5 cursor-pointer transition"
                 >
-                  <PlusCircle className="h-3.5 w-3.5" />
-                  <span>নতুন ফর্ম (Create Form)</span>
+                  <Plus className="h-3 w-3" />
+                  <span>নতুন তৈরি করুন</span>
                 </button>
               </div>
 
               {customForms.length === 0 ? (
-                <div className="text-center py-10 border-2 border-dashed border-gray-100 rounded-xl">
-                  <Sliders className="h-10 w-10 text-gray-300 mx-auto mb-2" />
-                  <p className="text-xs text-gray-400 font-semibold">কোন ফর্ম এখনো তৈরি করা হয়নি!</p>
-                  <button 
-                    onClick={handleStartNewForm}
-                    className="mt-3 text-xs text-primary font-bold hover:underline"
-                  >
-                    নতুন একটি ফর্ম তৈরি করুন
-                  </button>
-                </div>
+                <p className="text-xs text-gray-400 py-4 text-center">এখন পর্যন্ত কোনো কাস্টম ফর্ম তৈরি করা হয়নি।</p>
               ) : (
-                <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1">
+                <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-1">
                   {customForms.map((frm) => {
                     const isSelected = selectedBuilderFormId === frm.formId;
-                    const fieldCount = customFields.filter(f => f.formId === frm.formId).length;
-                    const subCount = customSubmissions.filter(s => s.formId === frm.formId).length;
-                    
                     return (
                       <div 
                         key={frm.formId}
-                        onClick={() => {
-                          setSelectedBuilderFormId(frm.formId);
-                          setIsEditingSettings(false);
-                        }}
-                        className={`p-4 rounded-xl border transition-all duration-200 cursor-pointer flex flex-col justify-between ${
+                        onClick={() => loadFormSettingsIntoState(frm)}
+                        className={`p-3 rounded-lg border flex items-center justify-between cursor-pointer transition ${
                           isSelected 
-                            ? 'bg-blue-50/50 border-primary shadow-xs' 
-                            : 'bg-white hover:bg-gray-50/65 border-gray-150'
+                            ? 'bg-indigo-55 border-indigo-400 shadow-xs' 
+                            : 'bg-gray-50 border-gray-150 hover:bg-gray-100/50'
                         }`}
                       >
-                        <div className="flex justify-between items-start">
-                          <div className="leading-tight">
-                            <div className="flex items-center space-x-2">
-                              <h4 className="font-bold text-gray-800 text-xs">{frm.title}</h4>
-                              <span className={`text-[8.5px] px-1.5 py-0.5 rounded font-bold uppercase ${
-                                frm.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
-                              }`}>
-                                {frm.status}
-                              </span>
-                            </div>
-                            <span className="text-[10px] text-gray-400 font-mono mt-0.5 block">/{frm.slug}</span>
-                          </div>
-                          
-                          <div className="flex items-center space-x-1.5">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                loadFormSettingsIntoState(frm);
-                              }}
-                              className="text-gray-500 hover:text-gray-900 p-1 bg-gray-100 rounded"
-                              title="Edit Settings"
-                            >
-                              <Settings2 className="h-3 w-3" />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteFormComplete(frm.formId);
-                              }}
-                              className="text-red-500 hover:text-red-700 p-1 bg-red-50 rounded"
-                              title="Delete Form"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          </div>
+                        <div className="leading-tight space-y-1 max-w-[80%]">
+                          <strong className="text-gray-900 block truncate">{frm.title}</strong>
+                          <span className="text-[10px] text-gray-400 font-mono block">/{frm.slug}</span>
                         </div>
-
-                        <p className="text-[11px] text-gray-500 mt-2 line-clamp-2">{frm.description}</p>
-                        
-                        <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-gray-100/60 text-[10px] font-mono text-gray-400">
-                          <div className="flex items-center space-x-3">
-                            <span>Fields: <strong className="text-gray-700 font-bold">{fieldCount}</strong></span>
-                            <span>Entries: <strong className="text-gray-700 font-bold">{subCount}</strong></span>
-                          </div>
-                          <span className="capitalize text-[9.5px] text-secondary font-bold font-sans">
-                            {frm.permission === 'public' ? 'সবাই পূরণ করতে পারবে (Public)' : 
-                             frm.permission === 'login_required' ? 'লগইন আবশ্যক' : `ব্যাচ ${frm.restrictedBatch} সীমাবদ্ধ`}
+                        <div className="flex items-center space-x-1 shrink-0">
+                          <span className={`px-1.5 py-0.2 rounded text-[9px] font-black uppercase ${
+                            frm.status === 'active' ? 'bg-green-150 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {frm.status}
                           </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteFormComplete(frm.formId);
+                            }}
+                            className="p-1 hover:bg-red-100 text-red-500 rounded cursor-pointer transition"
+                            title="Delete Form completely"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         </div>
                       </div>
                     );
@@ -1563,284 +1737,139 @@ export const AdminDashboard: React.FC = () => {
               )}
             </div>
 
-            {/* FORM CONFIG SETTINGS COMPONENT */}
+            {/* 2. Form Settings Modifier panel */}
             {isEditingSettings && (
-              <div className="bg-white rounded-xl border border-gray-150 p-6 space-y-4">
-                <div className="flex justify-between items-center pb-2 border-b">
-                  <h4 className="font-extrabold text-gray-800 text-xs">
-                    {selectedBuilderFormId ? 'ফর্ম সেটিংস এডিট' : 'নতুন ফর্ম ক্রিয়েশন'}
-                  </h4>
-                  <button 
-                    onClick={() => setIsEditingSettings(false)}
-                    className="p-1 text-gray-400 hover:text-gray-700 text-xs font-bold font-mono"
-                  >
-                    বন্ধ করুন
-                  </button>
-                </div>
+              <div className="bg-white rounded-xl border border-gray-150 p-6 shadow-xs space-y-4 animate-slide-up">
+                <h4 className="font-bold text-gray-800 text-xs pb-2 border-b flex items-center space-x-1.5">
+                  <Settings2 className="h-4 w-4 text-primary" />
+                  <span>{selectedBuilderFormId ? 'ফর্ম সেটিংস এডিট করুন' : 'নতুন ফর্ম বেসিক সেটিংস'}</span>
+                </h4>
 
-                <form onSubmit={handleSaveFormSettings} className="space-y-4 text-xs">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="font-semibold text-gray-500">ফর্ম নাম (Form Name) *</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="উদাঃ Alumni Registration Form"
-                        value={formTitle}
-                        onChange={e => setFormTitle(e.target.value)}
-                        className="w-full border rounded px-3 py-1.5"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="font-semibold text-gray-500">মেডিয়া স্ল্যাগ (Form Slug)</label>
-                      <input
-                        type="text"
-                        placeholder="উদাঃ alumni-reg (ফাঁকা রাখলে অটো হবে)"
-                        value={formSlug}
-                        onChange={e => setFormSlug(e.target.value)}
-                        className="w-full border rounded px-3 py-1.5 font-mono"
-                      />
-                    </div>
-                  </div>
-
+                <form onSubmit={handleSaveFormSettings} className="space-y-4 text-xs font-sans">
                   <div className="space-y-1">
-                    <label className="font-semibold text-gray-500">ফর্ম বর্ণনা ও নির্দেশনালী (Description)</label>
-                    <textarea
-                      placeholder="ফর্ম সম্পর্কে কিছু বলুন যা ইউজাররা দেখতে পাবে"
-                      rows={3}
-                      value={formDesc}
-                      onChange={e => setFormDesc(e.target.value)}
-                      className="w-full border rounded px-3 py-1.5"
+                    <label className="font-semibold text-gray-500 block">ফর্মের শিরোনাম (Form Title) *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="IT Training Registration Form"
+                      value={formTitle}
+                      onChange={e => setFormTitle(e.target.value)}
+                      className="w-full border rounded px-3 py-1.5 focus:ring-1 focus:ring-primary"
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="font-semibold text-gray-500">অনুমতি লেভেল (Permissions)</label>
-                      <select
-                        value={formPermission}
-                        onChange={e => setFormPermission(e.target.value as any)}
-                        className="w-full border rounded px-3 py-1.5"
-                      >
-                        <option value="public">পাবলিক ফর্ম (Public Form - যে কেউ পূরণ করবে)</option>
-                        <option value="login_required">লগইন রিকোয়ার্ড (Login Required Form)</option>
-                        <option value="batch_restricted">ব্যাচ রেস্ট্রিকটেড (Batch Restricted Form)</option>
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="font-semibold text-gray-500">সীমিত ব্যাচ (Restricted Batch)</label>
-                      <input
-                        type="text"
-                        placeholder="উদাঃ 2015 (শুধু ব্যাচ সিলেক্টেড ফর্মে কার্যকর)"
-                        disabled={formPermission !== 'batch_restricted'}
-                        value={formRestrictedBatch}
-                        onChange={e => setFormRestrictedBatch(e.target.value)}
-                        className="w-full border rounded px-3 py-1.5 disabled:bg-gray-50"
-                      />
-                    </div>
+                  <div className="space-y-1">
+                    <label className="font-semibold text-gray-500 block">কাস্টম Slug URL (slug)*</label>
+                    <input
+                      type="text"
+                      placeholder="it-training-apply"
+                      value={formSlug}
+                      onChange={e => setFormSlug(e.target.value)}
+                      className="w-full border rounded px-3 py-1.5 focus:ring-1 focus:ring-primary font-mono"
+                    />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="font-semibold text-gray-500 block">ফর্মের বিবরণ/নির্দেশিকা (Notice / Guidelines)</label>
+                    <textarea
+                      rows={3}
+                      placeholder="ফর্ম পূরণ করার সময় ইউজারকে যে নোটিশ বা বিবরণ দেখাবেন তা এখানে লিখুন..."
+                      value={formDesc}
+                      onChange={e => setFormDesc(e.target.value)}
+                      className="w-full border rounded px-3 py-1.5 focus:ring-1 focus:ring-primary font-sans"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <label className="font-semibold text-gray-500">ফর্ম অবস্হা (Status)</label>
+                      <label className="font-semibold text-gray-500 block">স্ট্যাটাস (Status)</label>
                       <select
                         value={formStatus}
                         onChange={e => setFormStatus(e.target.value as any)}
-                        className="w-full border rounded px-3 py-1.5"
+                        className="w-full border rounded px-3 py-1.5 bg-white text-xs font-sans"
                       >
-                        <option value="acti                          {sortedFields.map((field, idx) => {
-                            const isEditing = editingFieldId === field.fieldId;
-                            if (isEditing) {
-                              return (
-                                <div key={field.fieldId} className="p-4 bg-blue-50/40 rounded-lg border border-blue-200 space-y-3.5">
-                                  <div className="flex items-center justify-between border-b border-blue-100 pb-1.5 mb-2">
-                                    <span className="font-bold text-gray-800 text-[11px] uppercase tracking-wider flex items-center space-x-1">
-                                      <Edit className="h-3.5 w-3.5 text-blue-600" />
-                                      <span>ফিল্ড তথ্য সম্পাদন (Edit Field #{idx + 1})</span>
-                                    </span>
-                                    <span className="font-mono text-[9px] text-gray-400 bg-gray-150/80 border px-1.5 py-0.2 rounded">ID: {field.fieldId}</span>
-                                  </div>
+                        <option value="active">সক্রিয় (Active)</option>
+                        <option value="inactive">নিষ্ক্রিয় (Inactive)</option>
+                      </select>
+                    </div>
 
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                                    <div className="space-y-1">
-                                      <label className="font-semibold text-gray-500 block">ফিল্ডের নাম / লেবেল (Label) *</label>
-                                      <input
-                                        type="text"
-                                        required
-                                        value={editFieldLabel}
-                                        onChange={e => setEditFieldLabel(e.target.value)}
-                                        className="w-full border rounded px-2.5 py-1.5 bg-white text-xs"
-                                      />
-                                    </div>
+                    <div className="space-y-1">
+                      <label className="font-semibold text-gray-500 block">অনুমতি (Access Permission)</label>
+                      <select
+                        value={formPermission}
+                        onChange={e => setFormPermission(e.target.value as any)}
+                        className="w-full border rounded px-3 py-1.5 bg-white text-xs font-sans"
+                      >
+                        <option value="public">উন্মুক্ত (Public)</option>
+                        <option value="login_required">লগইন বাধ্যতামূলক (Login Required)</option>
+                        <option value="batch_restricted">নির্দিষ্ট ব্যাচ প্রাক্তনী (Batch restricted)</option>
+                      </select>
+                    </div>
+                  </div>
 
-                                    <div className="space-y-1">
-                                      <label className="font-semibold text-gray-500 block">ইনপুট টাইপ (Input Type) *</label>
-                                      <select
-                                        value={editFieldType}
-                                        onChange={e => setEditFieldType(e.target.value as any)}
-                                        className="w-full border rounded px-2.5 py-1.5 bg-white text-xs"
-                                      >
-                                        <optgroup label="Basic Inputs">
-                                          <option value="text">সাধারণ টেক্সট (Text Input)</option>
-                                          <option value="textarea">দীর্ঘ বর্ণনা (Textarea)</option>
-                                          <option value="number">সংখ্যা (Number)</option>
-                                          <option value="email">ইমেইল (Email)</option>
-                                          <option value="mobile">মোবাইল নম্বর (Mobile Number)</option>
-                                          <option value="password">পাসওয়ার্ড (Password)</option>
-                                        </optgroup>
-                                        <optgroup label="Selection Controls">
-                                          <option value="dropdown">ড্রপডাউন লিস্ট (Dropdown Select)</option>
-                                          <option value="radio">অপশন বাটন (Radio Buttons)</option>
-                                          <option value="checkbox">চেকবক্স অপশন (Checkbox Items)</option>
-                                        </optgroup>
-                                        <optgroup label="Temporal Pickers">
-                                          <option value="date">তারিখ (Date Picker)</option>
-                                          <option value="time">সময় (Time Picker)</option>
-                                          <option value="datetime">তারিখ ও সময় (DateTime Picker)</option>
-                                        </optgroup>
-                                        <optgroup label="Advanced Integrations">
-                                          <option value="address">পূর্ণ ঠিকানা (Full Address Panel)</option>
-                                          <option value="signature">স্বাক্ষর স্পেস (Digital Signature)</option>
-                                          <option value="rating">রেটিং স্টার (Rating Stars)</option>
-                                          <option value="url">ওয়েবসাইট লিংক URL (Website Link)</option>
-                                          <option value="color">কালার পিকার (Color Picker)</option>
-                                          <option value="file">ফাইল/ছবি আপলোড (File/Image Upload)</option>
-                                        </optgroup>
-                                      </select>
-                                    </div>
-                                  </div>
+                  {formPermission === 'batch_restricted' && (
+                    <div className="space-y-1 animate-slide-up">
+                      <label className="font-semibold text-gray-500 block">অনুমোদিত ব্যাচ বছর (উদাঃ 2015) *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="উদাঃ 2015"
+                        value={formRestrictedBatch}
+                        onChange={e => setFormRestrictedBatch(e.target.value)}
+                        className="w-full border rounded px-3 py-1.5 focus:ring-1 focus:ring-primary font-mono text-xs"
+                      />
+                    </div>
+                  )}
 
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                                    <div className="space-y-1">
-                                      <label className="font-semibold text-gray-500 block">সহায়ক লেখা (Placeholder Message)</label>
-                                      <input
-                                        type="text"
-                                        placeholder="প্লেসহোল্ডার টেক্সট"
-                                        value={editFieldPlaceholder}
-                                        onChange={e => setEditFieldPlaceholder(e.target.value)}
-                                        className="w-full border rounded px-2.5 py-1.5 bg-white text-xs"
-                                      />
-                                    </div>
+                  <div className="space-y-1">
+                    <label className="font-semibold text-gray-500 block">জমা পরবর্তী সফল মেসেজ (Success Message)</label>
+                    <input
+                      type="text"
+                      placeholder="আপনার আবেদনটি সফলভাবে জমা নেওয়া হয়েছে!"
+                      value={formSuccessMsg}
+                      onChange={e => setFormSuccessMsg(e.target.value)}
+                      className="w-full border rounded px-3 py-1.5 focus:ring-1 focus:ring-primary font-sans"
+                    />
+                  </div>
 
-                                    <div className="flex items-center space-x-2 pt-5">
-                                      <input
-                                        type="checkbox"
-                                        id={`edit_req_${field.fieldId}`}
-                                        checked={editFieldRequired}
-                                        onChange={e => setEditFieldRequired(e.target.checked)}
-                                        className="h-4 w-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300"
-                                      />
-                                      <label htmlFor={`edit_req_${field.fieldId}`} className="font-semibold text-gray-750 select-none cursor-pointer">
-                                        অবশ্যই পূরণীয়? (Field is Required?)
-                                      </label>
-                                    </div>
-                                  </div>
+                  {/* Register Now Active Integration (REQUEST 3) */}
+                  <div className="bg-gray-50 p-3 rounded-lg border space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="formRegNowChk"
+                        checked={formRegisterNowActive}
+                        onChange={e => setFormRegisterNowActive(e.target.checked)}
+                        className="h-4 w-4 text-primary rounded cursor-pointer"
+                      />
+                      <label htmlFor="formRegNowChk" className="font-semibold text-gray-700 select-none cursor-pointer">
+                        "রেজিস্ট্রেশন করুন (Register Now)" বাটন এর সাথে সক্রিয় করুন
+                      </label>
+                    </div>
+                    <span className="text-[10px] text-gray-400 block leading-tight font-sans">
+                      এই চেক বক্স অন করলে, হোম স্ক্রিনের প্রধান "রেজিস্ট্রেশন করুন" বাটন এ ক্লিক করলে সরাসরি এই কাস্টম ফর্মটি লোড হবে।
+                    </span>
+                  </div>
 
-                                  {['dropdown', 'radio', 'checkbox'].includes(editFieldType) && (
-                                    <div className="space-y-1 text-xs">
-                                      <label className="font-semibold text-gray-500 text-teal-600 block">
-                                        চয়েস অপশন তালিকা (Comma-separated options) *
-                                      </label>
-                                      <input
-                                        type="text"
-                                        required
-                                        placeholder="Option A, Option B, Option C, Option D"
-                                        value={editFieldOptionsRaw}
-                                        onChange={e => setEditFieldOptionsRaw(e.target.value)}
-                                        className="w-full border rounded border-teal-200 focus:border-teal-400 px-3 py-1.5 bg-white text-xs"
-                                      />
-                                      <span className="text-[10px] text-teal-600 block mt-1">
-                                        মাঝে কমা ( , ) ব্যবহার করে একাধিক অপশনগুলো পর পর লিখুন।
-                                      </span>
-                                    </div>
-                                  )}
+                  <button
+                    type="submit"
+                    className="w-full bg-secondary text-gray-900 font-bold py-2 rounded-lg cursor-pointer transition flex items-center justify-center space-x-1 font-sans"
+                  >
+                    <Save className="h-4 w-4" />
+                    <span>ফর্ম কনফিগারেশন সংরক্ষণ করুন (Save Settings)</span>
+                  </button>
+                </form>
+              </div>
+            )}
+          </div>
 
-                                  <div className="flex items-center justify-end space-x-1.5 pt-1">
-                                    <button
-                                      type="button"
-                                      onClick={handleEditFieldCancel}
-                                      className="px-3 py-1.5 bg-gray-250 hover:bg-gray-300 text-gray-700 rounded font-semibold text-xs transition cursor-pointer font-medium"
-                                    >
-                                      বাতিল (Cancel)
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleEditFieldSave(field.fieldId)}
-                                      className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold text-xs transition flex items-center space-x-1 cursor-pointer shadow-sm"
-                                    >
-                                      <Save className="h-3 w-3" />
-                                      <span>আপডেট করুন (Save Changes)</span>
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            }
-
-                            return (
-                              <div 
-                                key={field.fieldId}
-                                className="p-3.5 bg-gray-50 rounded-lg border border-gray-150 flex items-center justify-between text-xs"
-                              >
-                                <div className="flex items-center space-x-3">
-                                  <span className="font-mono text-gray-400 font-bold bg-gray-200/50 h-5 w-5 rounded flex items-center justify-center">
-                                    {idx + 1}
-                                  </span>
-                                  <div>
-                                    <div className="flex items-center space-x-2">
-                                      <strong className="text-gray-800 uppercase font-sans text-[11px]">{field.label}</strong>
-                                      {field.required && <span className="text-red-500 font-bold">*</span>}
-                                    </div>
-                                    <span className="font-mono text-[10px] text-gray-400 capitalize bg-white/80 border px-1.5 py-0.2 rounded mt-1 block w-fit">
-                                      Type: {field.fieldType}
-                                    </span>
-                                    {field.options && field.options.length > 0 && (
-                                      <span className="text-[9px] text-primary block mt-1">Options: {field.options.join(', ')}</span>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <div className="flex items-center space-x-1">
-                                  <button
-                                    onClick={() => handleShiftFieldOrder(field, 'up')}
-                                    disabled={idx === 0}
-                                    className="p-1 hover:bg-gray-200 text-gray-500 rounded disabled:opacity-40"
-                                    title="Move Up"
-                                  >
-                                    <ArrowUp className="h-3 w-3" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleShiftFieldOrder(field, 'down')}
-                                    disabled={idx === sortedFields.length - 1}
-                                    className="p-1 hover:bg-gray-200 text-gray-500 rounded disabled:opacity-40"
-                                    title="Move Down"
-                                  >
-                                    <ArrowDown className="h-3 w-3" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleEditFieldStart(field)}
-                                    className="p-1 hover:bg-gray-200 text-blue-600 rounded"
-                                    title="Edit Field"
-                                  >
-                                    <Edit className="h-3.5 w-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleCloneField(field)}
-                                    className="p-1 hover:bg-gray-200 text-indigo-600 rounded"
-                                    title="Clone Field"
-                                  >
-                                    <Copy className="h-3.5 w-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteField(field.fieldId)}
-                                    className="p-1 hover:bg-red-100 text-red-500 rounded"
-                                    title="Delete Field"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}��থবা নতুন ক্রিয়েট করুন।</p>
+          {/* RIGHT COLUMN: DESIGN AREA / FORM FIELDS */}
+          <div className="xl:col-span-7 space-y-6">
+            {!selectedBuilderFormId ? (
+              <div className="bg-white rounded-xl border border-gray-150 p-8 text-center space-y-3 font-sans">
+                <Sliders className="h-10 w-10 text-gray-300 mx-auto animate-pulse" />
+                <h4 className="text-gray-800 font-bold text-sm mb-1">কোন ফর্ম সিলেক্ট করা নেই</h4>
+                <p className="text-xs text-gray-400 max-w-sm mx-auto">বাম পাশের ডিরেক্টরি থেকে কাস্টমাইজ করার জন্য যেকোনো একটি ফর্ম সিলেক্ট করুন অথবা নতুন ক্রিয়েট করুন।</p>
               </div>
             ) : (
               (() => {
@@ -1850,11 +1879,11 @@ export const AdminDashboard: React.FC = () => {
                   .sort((a,b) => a.sortOrder - b.sortOrder);
                 
                 return (
-                  <div className="space-y-6">
+                  <div className="space-y-6 font-sans">
                     {/* Selected Form Header */}
                     <div className="bg-white rounded-xl border border-gray-150 p-6 flex justify-between items-center bg-radial-to-r from-blue-50/10 to-indigo-50/10">
                       <div>
-                        <span className="text-[9.5px] bg-primary/10 text-primary font-bold uppercase rounded px-2 py-0.5">ডিজাইন এরিয়া</span>
+                        <span className="text-[10.5px] bg-primary/10 text-primary font-bold uppercase rounded px-2 py-0.5">ডিজাইন এরিয়া</span>
                         <h3 className="font-extrabold text-gray-900 text-sm mt-1">{selectedForm?.title}</h3>
                         <p className="text-[11px] text-gray-500 font-medium">স্ল্যাগ URL: <code className="font-mono bg-gray-100 text-gray-800 px-1 rounded">/forms/{selectedForm?.slug}</code></p>
                       </div>
@@ -1873,70 +1902,197 @@ export const AdminDashboard: React.FC = () => {
                         <p className="text-xs text-gray-400 py-6 text-center">ফর্মে এখনও কোনো ইনপুট ফিল্ড নেই। নিচের প্যানেল থেকে ফিল্ড যোগ করুন!</p>
                       ) : (
                         <div className="space-y-2.5">
-                          {sortedFields.map((field, idx) => (
-                            <div 
-                              key={field.fieldId}
-                              className="p-3.5 bg-gray-50 rounded-lg border border-gray-150 flex items-center justify-between text-xs"
-                            >
-                              <div className="flex items-center space-x-3">
-                                <span className="font-mono text-gray-400 font-bold bg-gray-200/50 h-5 w-5 rounded flex items-center justify-center">
-                                  {idx + 1}
-                                </span>
-                                <div>
-                                  <div className="flex items-center space-x-2">
-                                    <strong className="text-gray-800 uppercase font-sans text-[11px]">{field.label}</strong>
-                                    {field.required && <span className="text-red-500 font-bold">*</span>}
-                                  </div>
-                                  <span className="font-mono text-[10px] text-gray-400 capitalize bg-white/80 border px-1.5 py-0.2 rounded mt-1 block w-fit">
-                                    Type: {field.fieldType}
-                                  </span>
-                                  {field.options && field.options.length > 0 && (
-                                    <span className="text-[9px] text-primary block mt-1">Options: {field.options.join(', ')}</span>
-                                  )}
-                                </div>
-                              </div>
+                          {sortedFields.map((field, idx) => {
+                            const isEditingOfThisField = editingFieldId === field.fieldId;
+                            
+                            return (
+                              <div 
+                                key={field.fieldId}
+                                className="p-3.5 bg-gray-50 rounded-lg border border-gray-150 flex flex-col space-y-3 text-xs"
+                              >
+                                {isEditingOfThisField ? (
+                                  /* Inline Edit Panel (REQUEST 1) */
+                                  <div className="space-y-3 animate-fade-in bg-white p-3 rounded border border-indigo-200">
+                                    <div className="flex items-center justify-between border-b pb-1.5 mb-2">
+                                      <strong className="text-indigo-700 text-xs font-bold font-sans">ফিল্ডের তথ্য সম্পাদন (Edit Field Properties)</strong>
+                                      <span className="text-[10px] text-gray-400 font-mono">ID: {field.fieldId}</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                      <div className="space-y-1">
+                                        <label className="font-bold text-gray-400 block text-[9.5px]">লেবেল নাম / শিরোনাম (Label) *</label>
+                                        <input
+                                          type="text"
+                                          required
+                                          value={editFieldLabel}
+                                          onChange={e => setEditFieldLabel(e.target.value)}
+                                          className="w-full border rounded px-2.5 py-1 text-xs font-sans"
+                                        />
+                                      </div>
+                                      
+                                      <div className="space-y-1">
+                                        <label className="font-bold text-gray-400 block text-[9.5px]">ইনপুট ধরণ (Type) *</label>
+                                        <select
+                                          value={editFieldType}
+                                          onChange={e => setEditFieldType(e.target.value as any)}
+                                          className="w-full border rounded px-2.5 py-1 text-xs bg-white font-sans"
+                                        >
+                                          <optgroup label="Basic Inputs">
+                                            <option value="text">সাধারণ টেক্সট (Text Input)</option>
+                                            <option value="textarea">দীর্ঘ বর্ণনা (Textarea)</option>
+                                            <option value="number">সংখ্যা (Number)</option>
+                                            <option value="email">ইমেইল (Email)</option>
+                                            <option value="mobile">মোবাইল নম্বর (Mobile Phone)</option>
+                                            <option value="password">পাসওয়ার্ড (Password)</option>
+                                          </optgroup>
+                                          <optgroup label="Selection Controls">
+                                            <option value="dropdown">ড্রপডাউন লিস্ট (Dropdown Select)</option>
+                                            <option value="radio">অপশন বাটন (Radio Buttons)</option>
+                                            <option value="checkbox">চেকবক্স অপশন (Checkbox Items)</option>
+                                          </optgroup>
+                                          <optgroup label="Advanced & Uploads">
+                                            <option value="file">ফাইল আপলোড / ছবি (File/Image Upload) 📁</option>
+                                            <option value="address">পূর্ণ ঠিকানা (Full Address Panel)</option>
+                                            <option value="signature">স্বাক্ষর স্পেস (Digital Signature)</option>
+                                            <option value="rating">রেটিং স্টার (Rating Stars)</option>
+                                            <option value="url">ওয়েবসাইট লিংক URL (Website Link)</option>
+                                            <option value="color">কালার পিকার (Color Picker)</option>
+                                          </optgroup>
+                                        </select>
+                                      </div>
+                                    </div>
 
-                              <div className="flex items-center space-x-1">
-                                <button
-                                  onClick={() => handleShiftFieldOrder(field, 'up')}
-                                  disabled={idx === 0}
-                                  className="p-1 hover:bg-gray-200 text-gray-500 rounded disabled:opacity-40"
-                                  title="Move Up"
-                                >
-                                  <ArrowUp className="h-3 w-3" />
-                                </button>
-                                <button
-                                  onClick={() => handleShiftFieldOrder(field, 'down')}
-                                  disabled={idx === sortedFields.length - 1}
-                                  className="p-1 hover:bg-gray-200 text-gray-500 rounded disabled:opacity-40"
-                                  title="Move Down"
-                                >
-                                  <ArrowDown className="h-3 w-3" />
-                                </button>
-                                <button
-                                  onClick={() => handleCloneField(field)}
-                                  className="p-1 hover:bg-gray-200 text-indigo-600 rounded"
-                                  title="Clone Field"
-                                >
-                                  <Copy className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteField(field.fieldId)}
-                                  className="p-1 hover:bg-red-100 text-red-500 rounded"
-                                  title="Delete Field"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-2">
+                                      <div className="space-y-1">
+                                        <label className="font-bold text-gray-400 block text-[9.5px]">সহায়ক মেসেজ (Placeholder)</label>
+                                        <input
+                                          type="text"
+                                          value={editFieldPlaceholder}
+                                          onChange={e => setEditFieldPlaceholder(e.target.value)}
+                                          className="w-full border rounded px-2.5 py-1 text-xs font-sans"
+                                        />
+                                      </div>
+
+                                      <div className="flex items-center space-x-1.5 pt-5">
+                                        <input
+                                          type="checkbox"
+                                          id={`editReqCh_${field.fieldId}`}
+                                          checked={editFieldRequired}
+                                          onChange={e => setEditFieldRequired(e.target.checked)}
+                                          className="h-4 w-4 text-primary rounded cursor-pointer animate-fade-in"
+                                        />
+                                        <label htmlFor={`editReqCh_${field.fieldId}`} className="font-bold text-gray-700 select-none cursor-pointer font-sans text-xs">
+                                          অবশ্যই পূরণীয়? (Required)
+                                        </label>
+                                      </div>
+                                    </div>
+
+                                    {['dropdown', 'radio', 'checkbox'].includes(editFieldType) && (
+                                      <div className="space-y-1 animate-slide-up bg-teal-50/20 p-2 border border-teal-100 rounded">
+                                        <label className="font-bold text-teal-700 block text-[9.5px] font-sans">চয়েস অপশন তালিকা (Comma-separated choices) *</label>
+                                        <input
+                                          type="text"
+                                          required
+                                          value={editFieldOptionsRaw}
+                                          onChange={e => setFieldOptionsRaw(e.target.value)}
+                                          className="w-full border rounded p-1 text-xs font-sans"
+                                          placeholder="Option A, Option B, Option C"
+                                        />
+                                      </div>
+                                    )}
+
+                                    <div className="flex justify-end space-x-1.5 pt-2 border-t font-sans">
+                                      <button
+                                        type="button"
+                                        onClick={handleEditFieldCancel}
+                                        className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded font-bold cursor-pointer transition"
+                                      >
+                                        বাতিল (Cancel)
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleEditFieldSave(field.fieldId)}
+                                        className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded font-bold flex items-center space-x-0.5 cursor-pointer transition"
+                                      >
+                                        <Save className="h-3 w-3" />
+                                        <span>সংরক্ষণ করুন (Apply)</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  /* Static Row View */
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-3">
+                                      <span className="font-mono text-gray-400 font-bold bg-gray-200/50 h-5 w-5 rounded flex items-center justify-center">
+                                        {idx + 1}
+                                      </span>
+                                      <div>
+                                        <div className="flex items-center space-x-2">
+                                          <strong className="text-gray-800 uppercase font-sans text-[11px]">{field.label}</strong>
+                                          {field.required && <span className="text-red-500 font-bold">*</span>}
+                                        </div>
+                                        <span className="font-mono text-[10px] text-gray-400 capitalize bg-white/85 border px-1.5 py-0.2 rounded mt-1 block w-fit shadow-2xs">
+                                          Type: {field.fieldType}
+                                        </span>
+                                        {field.options && field.options.length > 0 && (
+                                          <span className="text-[9.5px] text-primary block mt-1 font-sans">Options: {field.options.join(', ')}</span>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center space-x-1">
+                                      {/* Order Shifting Buttons */}
+                                      <button
+                                        onClick={() => handleShiftFieldOrder(field, 'up')}
+                                        disabled={idx === 0}
+                                        className="p-1 hover:bg-gray-200 text-gray-500 rounded disabled:opacity-40 transition cursor-pointer"
+                                        title="Move Up"
+                                      >
+                                        <ArrowUp className="h-3 w-3" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleShiftFieldOrder(field, 'down')}
+                                        disabled={idx === sortedFields.length - 1}
+                                        className="p-1 hover:bg-gray-200 text-gray-500 rounded disabled:opacity-40 transition cursor-pointer"
+                                        title="Move Down"
+                                      >
+                                        <ArrowDown className="h-3 w-3" />
+                                      </button>
+
+                                      {/* Field Operations */}
+                                      <button
+                                        onClick={() => handleEditFieldStart(field)}
+                                        className="p-1 hover:bg-gray-200 text-indigo-600 rounded cursor-pointer transition"
+                                        title="Edit Field Properties"
+                                      >
+                                        <Edit className="h-3.5 w-3.5" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleCloneField(field)}
+                                        className="p-1 hover:bg-gray-200 text-gray-600 rounded cursor-pointer transition"
+                                        title="Clone Field"
+                                      >
+                                        <Copy className="h-3.5 w-3.5" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteField(field.fieldId)}
+                                        className="p-1 hover:bg-red-100 text-red-500 rounded cursor-pointer transition"
+                                        title="Delete Field"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
 
-                    {/* Add Field Section */}
+                    {/* Add Field Section (REQUEST 2 option file included below) */}
                     <div className="bg-white rounded-xl border border-gray-150 p-6 space-y-4 shadow-xs">
-                      <h4 className="font-bold text-gray-800 text-xs pb-1.5 border-b text-secondary flex items-center space-x-1">
+                      <h4 className="font-bold text-gray-800 text-xs pb-1.5 border-b text-secondary flex items-center space-x-1 font-sans">
                         <PlusCircle className="h-4 w-4" />
                         <span>১০০% কাস্টম ইনপুট ফিল্ড জোড়ানো (Add Form Field)</span>
                       </h4>
@@ -1944,23 +2100,23 @@ export const AdminDashboard: React.FC = () => {
                       <form onSubmit={handleAddField} className="space-y-4 text-xs">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-1">
-                            <label className="font-semibold text-gray-500">ফিল্ডের নাম / লেবেল (Label) *</label>
+                            <label className="font-semibold text-gray-500 block font-sans">ফিল্ডের নাম / লেবেল (Label) *</label>
                             <input
                               type="text"
                               required
-                              placeholder="উদাঃ বর্তমান পেশা (Current Occupation)"
+                              placeholder="우দাঃ বর্তমান পেশা (Current Occupation)"
                               value={fieldLabel}
                               onChange={e => setFieldLabel(e.target.value)}
-                              className="w-full border rounded px-3 py-1.5"
+                              className="w-full border rounded px-3 py-1.5 text-xs font-sans"
                             />
                           </div>
 
                           <div className="space-y-1">
-                            <label className="font-semibold text-gray-500">ইনপুট টাইপ (Field Input Type) *</label>
+                            <label className="font-semibold text-gray-500 block font-sans">ইনপুট টাইপ (Field Input Type) *</label>
                             <select
                               value={fieldType}
                               onChange={e => setFieldType(e.target.value as any)}
-                              className="w-full border rounded px-3 py-1.5"
+                              className="w-full border rounded px-3 py-1.5 bg-white text-xs font-sans"
                             >
                               <optgroup label="Basic Inputs">
                                 <option value="text">সাধারণ টেক্সট (Text Input)</option>
@@ -1980,7 +2136,8 @@ export const AdminDashboard: React.FC = () => {
                                 <option value="time">সময় (Time Picker)</option>
                                 <option value="datetime">তারিখ ও সময় (DateTime Picker)</option>
                               </optgroup>
-                              <optgroup label="Advanced Integrations">
+                              <optgroup label="Advanced & Uploads">
+                                <option value="file">ফাইল আপলোড / ছবি (File/Image Upload) 📁</option>
                                 <option value="address">পূর্ণ ঠিকানা (Full Address Panel)</option>
                                 <option value="signature">স্বাক্ষর স্পেস (Digital Signature)</option>
                                 <option value="rating">রেটিং স্টার (Rating Stars)</option>
@@ -1993,13 +2150,13 @@ export const AdminDashboard: React.FC = () => {
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-1">
-                            <label className="font-semibold text-gray-500">সহায়ক লেখা (Placeholder Message)</label>
+                            <label className="font-semibold text-gray-500 block font-sans">সহায়ক লেখা (Placeholder Message)</label>
                             <input
                               type="text"
                               placeholder="ইনপুট বক্সের ভেতরে যে হালকা লেখা ভেসে থাকবে"
                               value={fieldPlaceholder}
                               onChange={e => setFieldPlaceholder(e.target.value)}
-                              className="w-full border rounded px-3 py-1.5"
+                              className="w-full border rounded px-3 py-1.5 text-xs font-sans"
                             />
                           </div>
                           
@@ -2009,9 +2166,9 @@ export const AdminDashboard: React.FC = () => {
                               id="requiredFieldChk"
                               checked={fieldRequired}
                               onChange={e => setFieldRequired(e.target.checked)}
-                              className="h-4 w-4 rounded text-primary"
+                              className="h-4 w-4 rounded text-primary text-xs cursor-pointer"
                             />
-                            <label htmlFor="requiredFieldChk" className="font-semibold text-gray-700 select-none cursor-pointer">
+                            <label htmlFor="requiredFieldChk" className="font-semibold text-gray-700 select-none cursor-pointer font-sans text-xs">
                               অবশ্যই পূরণীয়? (Field is Required?)
                             </label>
                           </div>
@@ -2020,18 +2177,18 @@ export const AdminDashboard: React.FC = () => {
                         {/* Dropdown/Radio/Checkbox Options field */}
                         {['dropdown', 'radio', 'checkbox'].includes(fieldType) && (
                           <div className="space-y-1">
-                            <label className="font-semibold text-gray-500 text-teal-600 block">
+                            <label className="font-semibold text-gray-500 text-teal-600 block font-sans pb-0.5">
                               চয়েস অপশন তালিকা (Comma-separated options) *
                             </label>
                             <input
                               type="text"
                               required
-                              placeholder="উদাঃ Option A, Option B, Option C, Option D"
+                              placeholder="Option A, Option B, Option C, Option D"
                               value={fieldOptionsRaw}
                               onChange={e => setFieldOptionsRaw(e.target.value)}
-                              className="w-full border rounded border-teal-200 focus:border-teal-400 px-3 py-1.5 bg-teal-50/10"
+                              className="w-full border rounded border-teal-200 focus:border-teal-400 px-3 py-1.5 bg-teal-50/10 font-sans text-xs"
                             />
-                            <span className="text-[10px] text-teal-600 block leading-tight mt-1">
+                            <span className="text-[10px] text-teal-600 block leading-tight mt-1 font-sans">
                               মাঝে কমা ( , ) ব্যবহার করে একাধিক অপশনগুলো পর পর লিখুন। মডিউল এগুলোকে রূপান্তর করবে।
                             </span>
                           </div>
@@ -2039,7 +2196,7 @@ export const AdminDashboard: React.FC = () => {
 
                         <button
                           type="submit"
-                          className="w-full bg-secondary hover:bg-secondary/90 text-gray-900 font-bold py-2 rounded-lg flex items-center justify-center space-x-1.5 transition cursor-pointer"
+                          className="w-full bg-secondary hover:bg-secondary/90 text-gray-900 font-bold py-2 rounded-lg flex items-center justify-center space-x-1.5 transition cursor-pointer font-sans text-xs"
                         >
                           <Plus className="h-4 w-4" />
                           <span>ডিজাইন ফর্মে এই ফিল্ড যোগ করুন (Apply & Add)</span>
@@ -2056,7 +2213,7 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* ========================================================================================= */}
+
       {/* 7. DYNAMIC SUBMISSIONS TRACKING PANEL */}
       {/* ========================================================================================= */}
       {activeSubTab === 'form_submissions' && (
@@ -2278,21 +2435,96 @@ export const AdminDashboard: React.FC = () => {
                             .sort((a,b) => a.sortOrder - b.sortOrder);
                             
                           if (matchingFields.length === 0) {
-                            return Object.entries(selectedSubmission.data || {}).map(([key, val]) => (
-                              <div key={key} className="grid grid-cols-3 p-3 text-xs bg-white">
-                                <span className="font-bold text-gray-500 col-span-1">{key}</span>
-                                <span className="text-gray-800 col-span-2 font-mono whitespace-pre-wrap">{String(val)}</span>
-                              </div>
-                            ));
+                            return Object.entries(selectedSubmission.data || {}).map(([key, val]) => {
+                              const valStr = String(val);
+                              const isImage = valStr.startsWith('data:image/');
+                              const isPdf = valStr.startsWith('data:application/pdf');
+                              return (
+                                <div key={key} className="grid grid-cols-3 p-3 text-xs bg-white items-center">
+                                  <span className="font-bold text-gray-500 col-span-1">{key}</span>
+                                  {isImage ? (
+                                    <div className="col-span-2 space-y-1 text-left">
+                                      <img 
+                                        src={valStr} 
+                                        alt={key} 
+                                        className="max-h-40 max-w-full rounded border bg-slate-50 p-1 shadow-3xs object-contain" 
+                                        referrerPolicy="no-referrer"
+                                      />
+                                      <a 
+                                        href={valStr} 
+                                        download={`upload_${selectedSubmission.submissionId}.png`}
+                                        className="text-[10px] text-primary hover:underline font-extrabold flex items-center space-x-1 mt-1 cursor-pointer"
+                                      >
+                                        <Download className="h-3.5 w-3.5 pointer-events-none" />
+                                        <span>ছবি ডাউনলোড করুন (Download Image)</span>
+                                      </a>
+                                    </div>
+                                  ) : isPdf ? (
+                                    <div className="col-span-2 text-left space-y-1">
+                                      <span className="text-[10px] bg-red-50 text-red-700 px-2 py-0.5 rounded font-bold border border-red-150 inline-block">
+                                        PDF Document
+                                      </span>
+                                      <a 
+                                        href={valStr} 
+                                        download={`doc_${selectedSubmission.submissionId}.pdf`}
+                                        className="text-[10px] text-primary hover:underline font-extrabold flex items-center space-x-1 mt-1 cursor-pointer"
+                                      >
+                                        <Download className="h-3.5 w-3.5 pointer-events-none" />
+                                        <span>পিডিএফ ডাউনলোড (Download PDF)</span>
+                                      </a>
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-800 col-span-2 font-mono whitespace-pre-wrap">{valStr}</span>
+                                  )}
+                                </div>
+                              );
+                            });
                           }
 
                           return matchingFields.map((f) => {
                             const val = selectedSubmission.data[f.fieldId];
-                            const displayVal = val === undefined || val === null ? '-' : Array.isArray(val) ? val.join(', ') : String(val);
+                            const valStr = val === undefined || val === null ? '' : String(val);
+                            const isImage = valStr.startsWith('data:image/') || f.fieldType === 'file' && valStr.startsWith('data:image/');
+                            const isPdf = valStr.startsWith('data:application/pdf') || f.fieldType === 'file' && valStr.startsWith('data:application/pdf');
+                            const displayVal = val === undefined || val === null ? '-' : Array.isArray(val) ? val.join(', ') : valStr;
+
                             return (
-                              <div key={f.fieldId} className="grid grid-cols-3 p-3 text-xs hover:bg-gray-50/50">
+                              <div key={f.fieldId} className="grid grid-cols-3 p-3 text-xs hover:bg-gray-50/50 items-center">
                                 <span className="font-bold text-gray-600 col-span-1">{f.label}</span>
-                                <span className="text-gray-800 col-span-2 font-medium whitespace-pre-wrap">{displayVal}</span>
+                                {isImage ? (
+                                  <div className="col-span-2 space-y-1 text-left">
+                                    <img 
+                                      src={valStr} 
+                                      alt={f.label} 
+                                      className="max-h-40 max-w-full rounded border bg-slate-50 p-1 shadow-3xs object-contain" 
+                                      referrerPolicy="no-referrer"
+                                    />
+                                    <a 
+                                      href={valStr} 
+                                      download={`upload_${selectedSubmission.submissionId}.png`}
+                                      className="text-[10px] text-primary hover:underline font-extrabold flex items-center space-x-1 mt-1 cursor-pointer animate-pulse"
+                                    >
+                                      <Download className="h-3.5 w-3.5 pointer-events-none" />
+                                      <span>ছবি ডাউনলোড করুন (Download Image)</span>
+                                    </a>
+                                  </div>
+                                ) : isPdf ? (
+                                  <div className="col-span-2 text-left space-y-1">
+                                    <span className="text-[10px] bg-red-50 text-red-700 px-2 py-0.5 rounded font-bold border border-red-150 inline-block">
+                                      PDF Document
+                                    </span>
+                                    <a 
+                                      href={valStr} 
+                                      download={`doc_${selectedSubmission.submissionId}.pdf`}
+                                      className="text-[10px] text-primary hover:underline font-extrabold flex items-center space-x-1 mt-1 cursor-pointer"
+                                    >
+                                      <Download className="h-3.5 w-3.5 pointer-events-none" />
+                                      <span>পিডিএফ ডাউনলোড (Download PDF)</span>
+                                    </a>
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-800 col-span-2 font-medium whitespace-pre-wrap">{displayVal}</span>
+                                )}
                               </div>
                             );
                           });

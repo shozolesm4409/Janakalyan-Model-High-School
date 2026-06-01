@@ -69,6 +69,83 @@ export async function checkAndSeedDatabase() {
       await batch.commit();
     }
 
+    // 6. Seed Default Custom Form: সুবর্ণ জয়ন্তী নিবন্ধন ফরম (Registration Panel)
+    const formsCol = collection(db, 'forms');
+    const formsSnap = await getDocs(formsCol);
+    if (formsSnap.empty) {
+      console.log('Seeding initial custom forms...');
+      const formId = 'golden_jubilee_reg';
+      await setDoc(doc(db, 'forms', formId), {
+        formId,
+        title: 'সুবর্ণ জয়ন্তী নিবন্ধন ফরম (Registration Panel)',
+        slug: 'golden-jubilee-reg',
+        description: 'সুবর্ণ জয়ন্তী ৫০ বছর পূর্তি উৎসবের মহাসম্মেলনে আপনার উপস্থিতি নিশ্চিত করতে নিচের ফরমটি পূরণ করুন।',
+        status: 'active',
+        createdBy: 'System Seed',
+        createdAt: new Date().toISOString(),
+        permission: 'login_required',
+        registerNowActive: true
+      });
+
+      console.log('Seeding initial custom form fields...');
+      const fields = [
+        {
+          fieldId: 'fld_name',
+          formId,
+          label: 'আবেদনকারীর নাম (Alumni/User Name)',
+          fieldType: 'text',
+          required: true,
+          placeholder: 'আপনার নাম লিখুন',
+          options: [],
+          sortOrder: 1
+        },
+        {
+          fieldId: 'fld_date',
+          formId,
+          label: 'তারিখ (Date)',
+          fieldType: 'date',
+          required: false,
+          placeholder: '',
+          options: [],
+          sortOrder: 2
+        },
+        {
+          fieldId: 'fld_location',
+          formId,
+          label: 'লোকেশন বা ঠিকানা (Location)',
+          fieldType: 'address',
+          required: true,
+          placeholder: 'আপনার বর্তমান লোকেশন বা ঠিকানা',
+          options: [],
+          sortOrder: 3
+        },
+        {
+          fieldId: 'fld_abc',
+          formId,
+          label: 'অপশন নির্বাচন করুন (ABC Dropdown Option)',
+          fieldType: 'dropdown',
+          required: true,
+          placeholder: 'একটি অপশন নির্বাচন করুন',
+          options: ['Option A', 'Option B', 'Option C'],
+          sortOrder: 4
+        },
+        {
+          fieldId: 'fld_attachment',
+          formId,
+          label: 'সংযুক্তি (Upload Proof/Document)',
+          fieldType: 'file',
+          required: true,
+          placeholder: '',
+          options: [],
+          sortOrder: 5
+        }
+      ];
+
+      for (const field of fields) {
+        await setDoc(doc(db, 'form_fields', field.fieldId), field);
+      }
+    }
+
     console.log('Database verification and seeding checked successfully.');
   } catch (error) {
     console.error('Error of database seeding:', error);

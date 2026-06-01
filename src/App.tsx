@@ -12,7 +12,7 @@ import { UserDashboard } from './components/UserDashboard';
 import { AdminDashboard } from './AdminDashboard';
 import { checkAndSeedDatabase } from './seeding';
 import { db, handleFirestoreError, OperationType } from './firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import { Gallery as GalleryType, Committee as CommitteeType } from './types';
 import { 
   Award, 
@@ -27,7 +27,11 @@ import {
   ShieldCheck, 
   UserPlus,
   Compass,
-  ArrowRight
+  ArrowRight,
+  Send,
+  CheckCircle,
+  Upload,
+  BookOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -42,6 +46,12 @@ function AlumniAppContent() {
   const [committee, setCommittee] = useState<CommitteeType[]>([]);
   const [galleryFilter, setGalleryFilter] = useState('All');
 
+  // Real-time custom forms and fields
+  const [customForms, setCustomForms] = useState<any[]>([]);
+  const [customFields, setCustomFields] = useState<any[]>([]);
+  const [dynamicFieldsData, setDynamicFieldsData] = useState<Record<string, any>>({});
+  const [formSubmitting, setFormSubmitting] = useState(false);
+
   // Login forms local states
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [emailInput, setEmailInput] = useState('');
@@ -53,7 +63,7 @@ function AlumniAppContent() {
   // Auto redirect on authentication state change
   useEffect(() => {
     if (currentUser) {
-      if (currentTab === 'home' || currentTab === 'register') {
+      if (currentTab === 'home') {
         const isAdmin = currentUser.role === 'Admin' || currentUser.role === 'Super Admin';
         setCurrentTab(isAdmin ? 'admin-dash' : 'user-dash');
       }
@@ -64,10 +74,149 @@ function AlumniAppContent() {
     }
   }, [currentUser]);
 
+  // Listen to Custom Forms & Fields in App
+  useEffect(() => {
+    const unsubForms = onSnapshot(collection(db, 'forms'), (snapshot) => {
+      const items: any[] = [];
+      snapshot.forEach(doc => {
+        items.push(doc.data());
+      });
+      setCustomForms(items);
+    }, (error) => {
+      console.error('App custom forms read error:', error);
+    });
+
+    const unsubFields = onSnapshot(collection(db, 'form_fields'), (snapshot) => {
+      const items: any[] = [];
+      snapshot.forEach(doc => {
+        items.push(doc.data());
+      });
+      setCustomFields(items);
+    }, (error) => {
+      console.error('App custom fields read error:', error);
+    });
+
+    return () => {
+      unsubForms();
+      unsubFields();
+    };
+  }, []);
+
   // Trigger seeding on application start
   useEffect(() => {
     checkAndSeedDatabase();
   }, []);
+
+  // Auto-populate custom fields for name, profile image/photo, or file inputs
+  useEffect(() => {
+    if (!currentUser) return;
+    const activeForm = customForms.find(f => f.registerNowActive === true);
+    if (!activeForm) return;
+
+    const fields = customFields.filter(f => f.formId === activeForm.formId);
+    let updated = false;
+    const newData = { ...dynamicFieldsData };
+
+    fields.forEach(f => {
+      const labelLower = (f.label || '').toLowerCase();
+      
+      // 1. Auto-fill applicant name
+      const isNameField = labelLower.includes('নাম') || 
+                          labelLower.includes('name') || 
+                          labelLower.includes('আবেদনকারী') ||
+                          (f.fieldType === 'text' && labelLower.includes('applicant'));
+      if (isNameField && !newData[f.fieldId] && currentUser.name) {
+        newData[f.fieldId] = currentUser.name;
+        updated = true;
+      }
+
+      // 2. Auto-attach profile photo to image/file field
+      const isFileField = f.fieldType === 'file' || 
+                          labelLower.includes('ছবি') || 
+                          labelLower.includes('photo') || 
+                          labelLower.includes('image') || 
+                          labelLower.includes('attachment') || 
+                          labelLower.includes('সংযুক্তি');
+      if (isFileField && !newData[f.fieldId] && currentUser.profilePhoto) {
+        newData[f.fieldId] = currentUser.profilePhoto;
+        updated = true;
+      }
+
+      // 3. Optional extra nice-to-have auto-fills: Mobile, Batch, Email if empty
+      const isMobileField = f.fieldType === 'mobile' || labelLower.includes('mobile') || labelLower.includes('tel') || labelLower.includes('ফোন') || labelLower.includes('মোবাইল');
+      if (isMobileField && !newData[f.fieldId] && currentUser.mobile) {
+        newData[f.fieldId] = currentUser.mobile;
+        updated = true;
+      }
+
+      const isEmailField = f.fieldType === 'email' || labelLower.includes('email') || labelLower.includes('ইমেইল');
+      if (isEmailField && !newData[f.fieldId] && currentUser.email) {
+        newData[f.fieldId] = currentUser.email;
+        updated = true;
+      }
+
+      const isBatchField = labelLower.includes('batch') || labelLower.includes('ব্যাচ') || labelLower.includes('ssc');
+      if (isBatchField && !newData[f.fieldId] && currentUser.batch) {
+        newData[f.fieldId] = currentUser.batch;
+        updated = true;
+      }
+    });
+
+    if (updated) {
+      setDynamicFieldsData(newData);
+    }
+  }, [currentUser, customForms, customFields]);
+
+  const handleCustomFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const activeForm = customForms.find(f => f.registerNowActive === true);
+    if (!activeForm) return;
+
+    if (activeForm.permission === 'login_required' && !currentUser) {
+      alert('এই ফর্মটি পূরণের জন্য অনুগ্রহ করে অ্যাকাউন্ট লগইন বা সাইন আপ করুন।');
+      return;
+    }
+
+    if (activeForm.permission === 'batch_restricted') {
+      const allowedBatch = activeForm.restrictedBatch?.trim();
+      const userBatch = currentUser?.batch?.trim();
+      if (allowedBatch && userBatch !== allowedBatch) {
+        alert(`দুঃখিত! এই ফর্মটি শুধুমাত্র এসএসসি ${allowedBatch} পাসের ব্যাচের শিক্ষার্থীদের জন্য সীমাবদ্ধ।`);
+        return;
+      }
+    }
+
+    const currentFields = customFields.filter(f => f.formId === activeForm.formId);
+    for (const f of currentFields) {
+      if (f.required && !dynamicFieldsData[f.fieldId]) {
+        alert(`"${f.label}" ফিল্ডটি অবশ্যই পূরণ করতে হবে।`);
+        return;
+      }
+    }
+
+    setFormSubmitting(true);
+    try {
+      const subId = `sub_${Date.now()}`;
+      await setDoc(doc(db, 'form_submissions', subId), {
+        submissionId: subId,
+        formId: activeForm.formId,
+        userId: currentUser?.uid || 'anonymous',
+        userName: currentUser?.name || 'Anonymous User',
+        userEmail: currentUser?.email || 'N/A',
+        data: dynamicFieldsData,
+        submittedAt: new Date().toISOString()
+      });
+
+      alert(activeForm.successMessage || 'আপনার ডাটা সফলভাবে ফর্মে সাবমিট করা হয়েছে!');
+      setDynamicFieldsData({});
+      setRegSuccess(true);
+    } catch (err) {
+      console.error(err);
+      alert('তথ্য সাবমিট করতে ত্রুটি হয়েছে। অনুগ্রহ করে আবার ট্রাই করুন।');
+    } finally {
+      setFormSubmitting(false);
+    }
+  };
 
   // Listen to Gallery and Committee for dedicated public pages (conforming to SKILL.md error rules)
   useEffect(() => {
@@ -131,7 +280,10 @@ function AlumniAppContent() {
     }
   };
 
-  const categories = ['All', 'Historic Campus', 'Reunions', 'Old Memories', 'Golden Jubilee'];
+  const defaultCategories = ['All', 'Historic Campus', 'Reunions', 'Old Memories', 'Golden Jubilee'];
+  const galleryItemCategories = Array.from(new Set(gallery.map(item => item.category).filter(Boolean)));
+  const categories = Array.from(new Set([...defaultCategories, ...galleryItemCategories]));
+
   const filteredGallery = galleryFilter === 'All' 
     ? gallery 
     : gallery.filter(item => item.category === galleryFilter);
@@ -291,6 +443,359 @@ function AlumniAppContent() {
                     <ArrowRight className="h-4 w-4" />
                   </button>
                 </div>
+              ) : customForms.find(f => f.registerNowActive === true) ? (
+                (() => {
+                  const activeForm = customForms.find(f => f.registerNowActive === true);
+                  return (
+                    <div className="max-w-3xl mx-auto my-6 bg-white rounded-xl shadow-lg border border-gray-150 p-6 sm:p-8 space-y-6">
+                      <div className="text-center space-y-2 pb-4 border-b">
+                        <span className="bg-primary/10 text-primary border border-primary/20 text-[10px] uppercase font-bold tracking-widest px-3 py-1 rounded inline-block font-sans">
+                          সক্রিয় কাস্টম নিবন্ধন ফর্ম (Linked Active Form)
+                        </span>
+                        <h2 className="text-2xl sm:text-2.5xl font-extrabold text-primary font-display">{activeForm.title}</h2>
+                        {activeForm.description && (
+                          <p className="text-xs text-gray-500 max-w-lg mx-auto font-sans leading-relaxed">{activeForm.description}</p>
+                        )}
+                      </div>
+                      
+                      <form onSubmit={handleCustomFormSubmit} className="space-y-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 border border-gray-150 p-4.5 rounded-xl text-left">
+                          
+                          {/* Beautiful Guidelines & Fee Rates Card inside the Active Dynamic Form */}
+                          <div className="sm:col-span-2 bg-indigo-50/50 rounded-xl border border-indigo-150 p-5 space-y-4 text-left font-sans shadow-3xs mb-2">
+                            <div className="flex items-center space-x-2 pb-2 border-b border-indigo-150">
+                              <BookOpen className="h-5 w-5 text-indigo-700 font-bold" />
+                              <h2 className="text-sm font-extrabold text-indigo-900">সরাসরি নিয়মাবলি ও ফি (Rules & Payment Guide)</h2>
+                            </div>
+                            
+                            <div className="space-y-3.5 text-xs leading-relaxed text-gray-700">
+                              <p className="font-semibold text-gray-750">
+                                উৎসবের নিরাপত্তা ও সুষ্ঠু পরিচালনার লক্ষ্যে প্রতিটি অ্যালামনাসকে অবশ্যই নির্দিষ্ট ফরম পূরণপূর্বক নিবন্ধন করতে হবে।
+                              </p>
+                              
+                              <ul className="space-y-2 font-sans">
+                                <li className="flex items-start space-x-2">
+                                  <span className="bg-indigo-600 text-white font-bold rounded-full h-4.5 w-4.5 flex items-center justify-center text-[10px] shrink-0">১</span>
+                                  <span className="text-gray-850"><strong>একক অ্যালামনাই ফি:</strong> ১০০০/- টাকা।</span>
+                                </li>
+                                <li className="flex items-start space-x-2">
+                                  <span className="bg-indigo-600 text-white font-bold rounded-full h-4.5 w-4.5 flex items-center justify-center text-[10px] shrink-0">২</span>
+                                  <span className="text-gray-850"><strong>প্রতিটি অতিরিক্ত অতিথি ফি:</strong> ৫০০/- টাকা।</span>
+                                </li>
+                                <li className="flex items-start space-x-2">
+                                  <span className="bg-indigo-600 text-white font-bold rounded-full h-4.5 w-4.5 flex items-center justify-center text-[10px] shrink-0">৩</span>
+                                  <span className="text-gray-850"><strong>উপহার সামগ্রী:</strong> সুবর্ণ জয়ন্তী টি-শার্ট, ক্যাপ, ব্যাজ ও স্মরণিকা ম্যাগাজিন।</span>
+                                </li>
+                              </ul>
+
+                              <div className="bg-white p-3.5 rounded-lg border border-indigo-100 shadow-3xs space-y-1.5 mt-2">
+                                <div className="text-[9.5px] font-mono tracking-wider font-extrabold text-gray-450 uppercase">বিকাশ / রকেট পেমেন্ট নম্বর:</div>
+                                <div className="text-sm font-extrabold text-indigo-800 font-mono">০১৭৪৫-৯৯০৫০৫ (পার্সোনাল)</div>
+                                <p className="text-[10px] text-gray-500 leading-normal">টাকা পাঠানোর পর ট্রানজেকশন আইডি (TrxID) অবশ্যই পেমেন্ট ফর্মে যুক্ত করতে হবে।</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {customFields
+                            .filter(f => f.formId === activeForm.formId)
+                            .sort((a, b) => a.sortOrder - b.sortOrder)
+                            .map((f) => {
+                              const isReq = !!f.required;
+                              return (
+                                <div key={f.fieldId} className={`space-y-1.5 ${
+                                  ['textarea', 'address', 'signature'].includes(f.fieldType) ? 'sm:col-span-2' : ''
+                                }`}>
+                                  <label className="font-bold text-xs text-gray-700 block col-span-full">
+                                    {f.label} {isReq && <span className="text-red-500">*</span>}
+                                  </label>
+
+                                  {f.fieldType === 'text' && (
+                                    <input
+                                      type="text"
+                                      required={isReq}
+                                      placeholder={f.placeholder || 'উত্তর লিখুন'}
+                                      value={dynamicFieldsData[f.fieldId] || ''}
+                                      onChange={e => setDynamicFieldsData(prev => ({ ...prev, [f.fieldId]: e.target.value }))}
+                                      className="w-full border border-gray-300 bg-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary"
+                                    />
+                                  )}
+
+                                  {f.fieldType === 'textarea' && (
+                                    <textarea
+                                      rows={3}
+                                      required={isReq}
+                                      placeholder={f.placeholder || 'বিস্তারিত লিখুন...'}
+                                      value={dynamicFieldsData[f.fieldId] || ''}
+                                      onChange={e => setDynamicFieldsData(prev => ({ ...prev, [f.fieldId]: e.target.value }))}
+                                      className="w-full border border-gray-300 bg-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary"
+                                    />
+                                  )}
+
+                                  {f.fieldType === 'number' && (
+                                    <input
+                                      type="number"
+                                      required={isReq}
+                                      placeholder={f.placeholder || 'সংখ্যা'}
+                                      value={dynamicFieldsData[f.fieldId] || ''}
+                                      onChange={e => setDynamicFieldsData(prev => ({ ...prev, [f.fieldId]: e.target.value }))}
+                                      className="w-full border border-gray-300 bg-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary"
+                                    />
+                                  )}
+
+                                  {f.fieldType === 'email' && (
+                                    <input
+                                      type="email"
+                                      required={isReq}
+                                      placeholder={f.placeholder || 'example@mail.com'}
+                                      value={dynamicFieldsData[f.fieldId] || ''}
+                                      onChange={e => setDynamicFieldsData(prev => ({ ...prev, [f.fieldId]: e.target.value }))}
+                                      className="w-full border border-gray-300 bg-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary"
+                                    />
+                                  )}
+
+                                  {f.fieldType === 'mobile' && (
+                                    <input
+                                      type="tel"
+                                      required={isReq}
+                                      placeholder={f.placeholder || '01XXXXXXXXX'}
+                                      value={dynamicFieldsData[f.fieldId] || ''}
+                                      onChange={e => setDynamicFieldsData(prev => ({ ...prev, [f.fieldId]: e.target.value }))}
+                                      className="w-full border border-gray-300 bg-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary font-mono"
+                                    />
+                                  )}
+
+                                  {f.fieldType === 'password' && (
+                                    <input
+                                      type="password"
+                                      required={isReq}
+                                      placeholder="••••••••"
+                                      value={dynamicFieldsData[f.fieldId] || ''}
+                                      onChange={e => setDynamicFieldsData(prev => ({ ...prev, [f.fieldId]: e.target.value }))}
+                                      className="w-full border border-gray-300 bg-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary font-mono"
+                                    />
+                                  )}
+
+                                  {f.fieldType === 'url' && (
+                                    <input
+                                      type="url"
+                                      required={isReq}
+                                      placeholder="https://example.com"
+                                      value={dynamicFieldsData[f.fieldId] || ''}
+                                      onChange={e => setDynamicFieldsData(prev => ({ ...prev, [f.fieldId]: e.target.value }))}
+                                      className="w-full border border-gray-300 bg-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary font-mono"
+                                    />
+                                  )}
+
+                                  {f.fieldType === 'color' && (
+                                    <input
+                                      type="color"
+                                      required={isReq}
+                                      value={dynamicFieldsData[f.fieldId] || '#10B981'}
+                                      onChange={e => setDynamicFieldsData(prev => ({ ...prev, [f.fieldId]: e.target.value }))}
+                                      className="w-16 h-8 border rounded-lg cursor-pointer bg-white"
+                                    />
+                                  )}
+
+                                  {f.fieldType === 'date' && (
+                                    <input
+                                      type="date"
+                                      required={isReq}
+                                      value={dynamicFieldsData[f.fieldId] || ''}
+                                      onChange={e => setDynamicFieldsData(prev => ({ ...prev, [f.fieldId]: e.target.value }))}
+                                      className="w-full border border-gray-300 bg-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary font-mono"
+                                    />
+                                  )}
+
+                                  {f.fieldType === 'time' && (
+                                    <input
+                                      type="time"
+                                      required={isReq}
+                                      value={dynamicFieldsData[f.fieldId] || ''}
+                                      onChange={e => setDynamicFieldsData(prev => ({ ...prev, [f.fieldId]: e.target.value }))}
+                                      className="w-full border border-gray-300 bg-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary font-mono"
+                                    />
+                                  )}
+
+                                  {f.fieldType === 'datetime' && (
+                                    <input
+                                      type="datetime-local"
+                                      required={isReq}
+                                      value={dynamicFieldsData[f.fieldId] || ''}
+                                      onChange={e => setDynamicFieldsData(prev => ({ ...prev, [f.fieldId]: e.target.value }))}
+                                      className="w-full border border-gray-300 bg-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary font-mono"
+                                    />
+                                  )}
+
+                                  {f.fieldType === 'dropdown' && (
+                                    <select
+                                      required={isReq}
+                                      value={dynamicFieldsData[f.fieldId] || ''}
+                                      onChange={e => setDynamicFieldsData(prev => ({ ...prev, [f.fieldId]: e.target.value }))}
+                                      className="w-full border border-gray-300 bg-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary cursor-pointer font-sans"
+                                    >
+                                      <option value="">-- নির্বাচন করুন (Select Option) --</option>
+                                      {f.options?.map((opt) => (
+                                        <option key={opt} value={opt}>{opt}</option>
+                                      ))}
+                                    </select>
+                                  )}
+
+                                  {f.fieldType === 'address' && (
+                                    <textarea
+                                      rows={2}
+                                      required={isReq}
+                                      placeholder={f.placeholder || 'ঠিকানা বা লোকেশন লিখুন...'}
+                                      value={dynamicFieldsData[f.fieldId] || ''}
+                                      onChange={e => setDynamicFieldsData(prev => ({ ...prev, [f.fieldId]: e.target.value }))}
+                                      className="w-full border border-gray-300 bg-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary"
+                                    />
+                                  )}
+
+                                  {f.fieldType === 'file' && (
+                                    <div className="space-y-2">
+                                      <input
+                                        type="file"
+                                        required={isReq && !dynamicFieldsData[f.fieldId]}
+                                        accept="image/*,application/pdf"
+                                        onChange={(event) => {
+                                          const file = event.target.files?.[0];
+                                          if (file) {
+                                            if (file.size > 3 * 1024 * 1024) {
+                                              alert('ফাইলের সাইজ অনেক বড়! সর্বোচ্চ ৩ মেগাবাইট (3MB) পর্যন্ত ফাইল আপলোড করতে পারবেন।');
+                                              return;
+                                            }
+                                            const reader = new FileReader();
+                                            reader.onloadend = () => {
+                                              setDynamicFieldsData(prev => ({ ...prev, [f.fieldId]: reader.result as string }));
+                                            };
+                                            reader.readAsDataURL(file);
+                                          }
+                                        }}
+                                        className="w-full text-xs font-sans text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary file:text-white hover:file:bg-primary/90 file:cursor-pointer"
+                                      />
+                                      {dynamicFieldsData[f.fieldId] && (
+                                        <div className="border border-gray-200 rounded-lg p-2 bg-white flex items-center justify-between">
+                                          <span className="text-[10px] text-green-650 font-semibold truncate max-w-[80%] flex items-center space-x-1">
+                                            <CheckCircle className="h-3.5 w-3.5 inline text-green-500" />
+                                            <span>ফাইল লোড হয়েছে (File uploaded successfully)</span>
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() => setDynamicFieldsData(prev => {
+                                              const copy = { ...prev };
+                                              delete copy[f.fieldId];
+                                              return copy;
+                                            })}
+                                            className="text-[10px] text-red-550 border hover:bg-red-50 p-1 px-2 rounded font-bold"
+                                          >
+                                            রিমুভ
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {f.fieldType === 'radio' && (
+                                    <div className="flex flex-wrap gap-4 pt-1">
+                                      {f.options?.map((opt) => (
+                                        <label key={opt} className="flex items-center space-x-2 text-xs font-sans text-gray-700 cursor-pointer">
+                                          <input
+                                            type="radio"
+                                            name={f.fieldId}
+                                            required={isReq}
+                                            checked={dynamicFieldsData[f.fieldId] === opt}
+                                            onChange={() => setDynamicFieldsData(prev => ({ ...prev, [f.fieldId]: opt }))}
+                                            className="h-4 w-4 text-primary focus:ring-primary border-gray-300"
+                                          />
+                                          <span>{opt}</span>
+                                        </label>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {f.fieldType === 'checkbox' && (
+                                    <div className="flex flex-wrap gap-4 pt-1">
+                                      {f.options?.map((opt) => {
+                                        const selectedValues = Array.isArray(dynamicFieldsData[f.fieldId]) 
+                                          ? dynamicFieldsData[f.fieldId] 
+                                          : (dynamicFieldsData[f.fieldId] ? [dynamicFieldsData[f.fieldId]] : []);
+                                        const isChecked = selectedValues.includes(opt);
+                                        return (
+                                          <label key={opt} className="flex items-center space-x-2 text-xs font-sans text-gray-700 cursor-pointer">
+                                            <input
+                                              type="checkbox"
+                                              checked={isChecked}
+                                              onChange={(ev) => {
+                                                let newVals;
+                                                if (ev.target.checked) {
+                                                  newVals = [...selectedValues, opt];
+                                                } else {
+                                                  newVals = selectedValues.filter((v: string) => v !== opt);
+                                                }
+                                                setDynamicFieldsData(prev => ({ ...prev, [f.fieldId]: newVals }));
+                                              }}
+                                              className="h-4 w-4 text-primary rounded focus:ring-primary border-gray-300"
+                                            />
+                                            <span>{opt}</span>
+                                          </label>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+
+                                  {f.fieldType === 'signature' && (
+                                    <textarea
+                                      rows={2}
+                                      required={isReq}
+                                      placeholder={f.placeholder || 'ডিজিটাল ই-স্বাক্ষর (ই-নাম)...'}
+                                      value={dynamicFieldsData[f.fieldId] || ''}
+                                      onChange={e => setDynamicFieldsData(prev => ({ ...prev, [f.fieldId]: e.target.value }))}
+                                      className="w-full border border-gray-300 bg-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary font-serif font-bold tracking-wider"
+                                    />
+                                  )}
+
+                                  {f.fieldType === 'rating' && (
+                                    <div className="flex items-center space-x-2 pt-1">
+                                      {[1, 2, 3, 4, 5].map((star) => (
+                                        <button
+                                          key={star}
+                                          type="button"
+                                          onClick={() => setDynamicFieldsData(prev => ({ ...prev, [f.fieldId]: star }))}
+                                          className={`text-xl focus:outline-none transition ${
+                                            (dynamicFieldsData[f.fieldId] || 0) >= star ? 'text-amber-500' : 'text-gray-300 hover:text-amber-300'
+                                          }`}
+                                        >
+                                          ★
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                        </div>
+
+                        <div className="flex justify-end pt-3 border-t border-gray-150">
+                          <button
+                            id="btn-dynamic-form-submit-app"
+                            type="submit"
+                            disabled={formSubmitting}
+                            className="bg-primary hover:bg-primary/95 text-white px-6 py-2.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 mt-1"
+                          >
+                            {formSubmitting ? (
+                              <span>দাখিল হচ্ছে...</span>
+                            ) : (
+                              <>
+                                <Send className="h-3.5 w-3.5" />
+                                <span>নিবন্ধন সম্পন্ন করুন (Submit)</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  );
+                })()
               ) : (
                 <RegistrationForm onSuccess={() => setRegSuccess(true)} />
               )}
