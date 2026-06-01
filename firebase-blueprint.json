@@ -1,0 +1,354 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile with role and identification details",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The unique Firebase Auth identifier of the user"
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the alumnus"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The email address of the user"
+        },
+        "mobile": {
+          "type": "string",
+          "description": "Mobile lockup number"
+        },
+        "batch": {
+          "type": "string",
+          "description": "SSC Batch year (e.g. 1976 - 2026)"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["Super Admin", "Admin", "Alumni/User"],
+          "description": "The user role governing platform access"
+        },
+        "profilePhoto": {
+          "type": "string",
+          "description": "Avatar image data URL or image path"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Account registration timestamp"
+        }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "Registration": {
+      "title": "Alumni Registration",
+      "description": "Official 50th-year Jubilee Registration form",
+      "type": "object",
+      "properties": {
+        "registrationId": {
+          "type": "string",
+          "description": "Unique registration ID"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Associated user UID"
+        },
+        "personalInfo": {
+          "type": "object",
+          "description": "Personal details like father/mother name, gender, blood group"
+        },
+        "academicInfo": {
+          "type": "object",
+          "description": "SSC passing year, roll, school records"
+        },
+        "contactInfo": {
+          "type": "object",
+          "description": "Present and permanent address, alternate phone"
+        },
+        "participationInfo": {
+          "type": "object",
+          "description": "Guest count, T-shirt size, transport choice"
+        },
+        "approvalStatus": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected"],
+          "description": "Approval status managed by admins"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Form submission timestamp"
+        }
+      },
+      "required": ["registrationId", "userId", "approvalStatus", "createdAt"]
+    },
+    "Payment": {
+      "title": "Payment Record",
+      "description": "Payment transactions for registrations",
+      "type": "object",
+      "properties": {
+        "paymentId": {
+          "type": "string",
+          "description": "Unique transaction tracking ID"
+        },
+        "registrationId": {
+          "type": "string",
+          "description": "Related Registration ID"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Amount paid in BDT"
+        },
+        "trxId": {
+          "type": "string",
+          "description": "Bank/Bkash/Rocket transaction identifier"
+        },
+        "paymentProof": {
+          "type": "string",
+          "description": "Uploaded image/screenshot of payment receipt"
+        },
+        "paymentStatus": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected"],
+          "description": "Validation status controlled by admins"
+        }
+      },
+      "required": ["paymentId", "registrationId", "amount", "trxId", "paymentStatus"]
+    },
+    "Event": {
+      "title": "School Event",
+      "description": "Centennial & Golden Jubilee scheduled events",
+      "type": "object",
+      "properties": {
+        "eventId": {
+          "type": "string",
+          "description": "Unique event identifier"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the event"
+        },
+        "description": {
+          "type": "string",
+          "description": "Agenda and schedules"
+        },
+        "eventDate": {
+          "type": "string",
+          "description": "Scheduled date and time"
+        },
+        "location": {
+          "type": "string",
+          "description": "Venue details"
+        }
+      },
+      "required": ["eventId", "title", "eventDate"]
+    },
+    "Notice": {
+      "title": "Notice Board",
+      "description": "School announcement and guidelines",
+      "type": "object",
+      "properties": {
+        "noticeId": {
+          "type": "string",
+          "description": "Unique notice ID"
+        },
+        "title": {
+          "type": "string",
+          "description": "Notice title"
+        },
+        "description": {
+          "type": "string",
+          "description": "Body of the notice"
+        },
+        "publishDate": {
+          "type": "string",
+          "description": "Date of publishing"
+        }
+      },
+      "required": ["noticeId", "title", "publishDate"]
+    },
+    "Gallery": {
+      "title": "Photo Gallery",
+      "description": "Visual history and event pictures",
+      "type": "object",
+      "properties": {
+        "galleryId": {
+          "type": "string",
+          "description": "Unique image ID"
+        },
+        "image": {
+          "type": "string",
+          "description": "Image URL or Base64"
+        },
+        "title": {
+          "type": "string",
+          "description": "Short title or caption"
+        },
+        "category": {
+          "type": "string",
+          "description": "Album category (e.g., Campus, Old Memories, Golden Jubilee)"
+        }
+      },
+      "required": ["galleryId", "image", "title"]
+    },
+    "Certificate": {
+      "title": "Participation Certificate",
+      "description": "E-Certificate issued to registered alumni",
+      "type": "object",
+      "properties": {
+        "certificateId": {
+          "type": "string",
+          "description": "Unique certificate serial number"
+        },
+        "userId": {
+          "type": "string",
+          "description": "UID of the alumnus user"
+        },
+        "generatedDate": {
+          "type": "string",
+          "description": "Issue timestamp"
+        }
+      },
+      "required": ["certificateId", "userId", "generatedDate"]
+    },
+    "Committee": {
+      "title": "Jubilee Committee Member",
+      "description": "Organizing committee profile",
+      "type": "object",
+      "properties": {
+        "memberId": {
+          "type": "string",
+          "description": "Unique ID"
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name"
+        },
+        "designation": {
+          "type": "string",
+          "description": "Role in committee (e.g. Convener, Treasurer)"
+        },
+        "photo": {
+          "type": "string",
+          "description": "Photo URI"
+        }
+      },
+      "required": ["memberId", "name", "designation"]
+    },
+    "Sponsor": {
+      "title": "Event Sponsor",
+      "description": "Corporate or individual sponsors",
+      "type": "object",
+      "properties": {
+        "sponsorId": {
+          "type": "string",
+          "description": "Unique ID"
+        },
+        "name": {
+          "type": "string",
+          "description": "Sponsor's title"
+        },
+        "logo": {
+          "type": "string",
+          "description": "Brand logo URI"
+        },
+        "website": {
+          "type": "string",
+          "description": "Sponsor hyperlink"
+        }
+      },
+      "required": ["sponsorId", "name"]
+    },
+    "AppFormSubmission": {
+      "title": "Application Form Submission",
+      "description": "Dynamic application forms (ID card, mentorship, magazine) submitted by alumni",
+      "type": "object",
+      "properties": {
+        "submissionId": {
+          "type": "string",
+          "description": "Unique application identifier"
+        },
+        "userId": {
+          "type": "string",
+          "description": "The UID of the applicant user"
+        },
+        "userName": {
+          "type": "string",
+          "description": "Applicant's full name"
+        },
+        "userEmail": {
+          "type": "string",
+          "description": "Applicant's email address"
+        },
+        "formType": {
+          "type": "string",
+          "enum": ["id_card", "mentorship", "magazine"],
+          "description": "Form category"
+        },
+        "formLabel": {
+          "type": "string",
+          "description": "Localized label of the form"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected"],
+          "description": "Approval status of the application"
+        },
+        "submittedAt": {
+          "type": "string",
+          "description": "Application submission timestamp"
+        },
+        "data": {
+          "type": "object",
+          "description": "Specific dynamic values corresponding to the form type"
+        }
+      },
+      "required": ["submissionId", "userId", "userName", "formType", "status", "submittedAt", "data"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles cataloged by Auth UID"
+    },
+    "registrations/{registrationId}": {
+      "schema": { "$ref": "#/entities/Registration" },
+      "description": "Jubilee registration submissions"
+    },
+    "payments/{paymentId}": {
+      "schema": { "$ref": "#/entities/Payment" },
+      "description": "Fee payment receipts"
+    },
+    "events/{eventId}": {
+      "schema": { "$ref": "#/entities/Event" },
+      "description": "Jubilee events calendar"
+    },
+    "notices/{noticeId}": {
+      "schema": { "$ref": "#/entities/Notice" },
+      "description": "Golden Jubilee notifications Board"
+    },
+    "gallery/{galleryId}": {
+      "schema": { "$ref": "#/entities/Gallery" },
+      "description": "Image gallery records"
+    },
+    "certificates/{certificateId}": {
+      "schema": { "$ref": "#/entities/Certificate" },
+      "description": "Issued participant registration e-certificates"
+    },
+    "committee/{memberId}": {
+      "schema": { "$ref": "#/entities/Committee" },
+      "description": "Jubilee celebration planning committee"
+    },
+    "sponsors/{sponsorId}": {
+      "schema": { "$ref": "#/entities/Sponsor" },
+      "description": "Event sponsors support directory"
+    },
+    "applications/{submissionId}": {
+      "schema": { "$ref": "#/entities/AppFormSubmission" },
+      "description": "Dynamic alumni applications (ID Card, Mentorship, Magazine)"
+    }
+  }
+}

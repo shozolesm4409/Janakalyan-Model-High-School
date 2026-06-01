@@ -1,0 +1,168 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Catch-all Default-Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Role-based Access Control
+    // Includes runtime bootstrapped admin shozolesm4409@gmail.com
+    function isBootstrappedAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == "shozolesm4409@gmail.com"
+      );
+    }
+
+    function isDemoAccount() {
+      return isSignedIn() && 
+        request.auth.token.email != null && 
+        request.auth.token.email.matches("^demo_[a-zA-Z0-9]+@janakalyan-school\\.edu$");
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        isBootstrappedAdmin() || 
+        isDemoAccount() || (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
+            getUserData().role == "Admin" ||
+            getUserData().role == "Super Admin"
+          )
+        )
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches("^[a-zA-Z0-9_\\-]+$");
+    }
+
+    // --- Collection Custom Rules ---
+
+    // USERS collection
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && userId == request.auth.uid && (
+        // Prevent self-role-escalation upon profile registration:
+        request.resource.data.role == "Alumni/User" || isBootstrappedAdmin() || isDemoAccount()
+      );
+      allow update: if isSignedIn() && (
+        isAdmin() || (
+          userId == request.auth.uid &&
+          request.resource.data.role == resource.data.role // prevent self role-change
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    // REGISTRATIONS collection
+    match /registrations/{registrationId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && 
+                    request.resource.data.userId == request.auth.uid &&
+                    request.resource.data.approvalStatus == "pending" &&
+                    isValidId(registrationId);
+      allow update: if isSignedIn() && (
+        isAdmin() || (
+          resource.data.userId == request.auth.uid &&
+          resource.data.approvalStatus == "pending" &&
+          request.resource.data.approvalStatus == "pending" &&
+          request.resource.data.userId == resource.data.userId
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    // PAYMENTS collection
+    match /payments/{paymentId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && 
+                    request.resource.data.userId == request.auth.uid &&
+                    request.resource.data.paymentStatus == "pending" &&
+                    isValidId(paymentId);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // EVENTS collection (Public read / Admin write)
+    match /events/{eventId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidId(eventId);
+    }
+
+    // NOTICES collection (Public read / Admin write)
+    match /notices/{noticeId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidId(noticeId);
+    }
+
+    // GALLERY collection (Public read / Admin write)
+    match /gallery/{galleryId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidId(galleryId);
+    }
+
+    // CERTIFICATES collection
+    match /certificates/{certificateId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if isAdmin() && isValidId(certificateId);
+    }
+
+    // COMMITTEE collection (Public read / Admin write)
+    match /committee/{memberId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidId(memberId);
+    }
+
+    // SPONSORS collection (Public read / Admin write)
+    match /sponsors/{sponsorId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidId(sponsorId);
+    }
+
+    // APPLICATIONS collection
+    match /applications/{submissionId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && 
+                    request.resource.data.userId == request.auth.uid &&
+                    request.resource.data.status == "pending" &&
+                    isValidId(submissionId);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // FORMS collection
+    match /forms/{formId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidId(formId);
+    }
+
+    // FORM FIELDS collection
+    match /form_fields/{fieldId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidId(fieldId);
+    }
+
+    // FORM SUBMISSIONS collection
+    match /form_submissions/{submissionId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if true; // Allows public and authenticated submissions (permission validated client-side)
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+  }
+}

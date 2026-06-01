@@ -1,0 +1,6 @@
+{
+  "name": "Janakalyan School 50th Golden Jubilee",
+  "description": "Alumni Registration & Management System for Janakalyan Model High School's 50th Year Golden Jubilee Anniversary celebration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
