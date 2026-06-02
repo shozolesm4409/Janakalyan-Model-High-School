@@ -93,7 +93,7 @@ export const CommitteeManager: React.FC<CommitteeManagerProps> = ({
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredComm.map((member) => (
-              <div key={member.memberId} className="bg-gray-50/50 border rounded-2xl p-5 hover:bg-white hover:shadow-md transition group relative text-left">
+              <div key={member.memberId} className="bg-gray-50/50 border rounded-2xl p-4 hover:bg-white hover:shadow-md transition group relative text-left">
                 <div className="flex items-center space-x-4">
                   <div className="h-16 w-16 bg-gray-100 rounded-xl overflow-hidden shrink-0 border-2 border-white shadow-sm ring-1 ring-gray-100">
                     {member.photo ? (

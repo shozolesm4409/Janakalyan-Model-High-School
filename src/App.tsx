@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import Swal from 'sweetalert2';
 import { Navbar } from './components/Navbar';
 import { LandingPage } from './components/LandingPage';
 import { UserDashboard } from './components/UserDashboard';
@@ -51,6 +52,10 @@ function AlumniAppContent() {
   const [customForms, setCustomForms] = useState<any[]>([]);
   const [customFields, setCustomFields] = useState<any[]>([]);
   const [dynamicFieldsData, setDynamicFieldsData] = useState<Record<string, any>>({});
+  const [paymentGateway, setPaymentGateway] = useState<string>('');
+  const [paymentCashOption, setPaymentCashOption] = useState<string>('');
+  const [paymentScreenshot, setPaymentScreenshot] = useState<string>('');
+  const [paymentTrxId, setPaymentTrxId] = useState<string>('');
   const [activeCustomFormStep, setActiveCustomFormStep] = useState<number>(1);
   const [formSubmitting, setFormSubmitting] = useState(false);
 
@@ -169,13 +174,39 @@ function AlumniAppContent() {
     }
   }, [currentUser, customForms, customFields]);
 
+  const getFormTotalAmount = (activeForm: any, dynamicFieldsData: Record<string, any>) => {
+    // Find guest count field value
+    const guestField = customFields.find(f => {
+      const lbl = (f.label || '').toLowerCase();
+      return lbl.includes('guest') || lbl.includes('guestcount') || lbl.includes('guest count') || lbl.includes('guest_count') || lbl.includes('guestcount') || lbl.includes('অতিথি') || lbl.includes('মেহমান') || lbl.includes('অতিরিক্ত সদস্য');
+    });
+    
+    let guestCount = 0;
+    if (guestField) {
+      const val = dynamicFieldsData[guestField.fieldId];
+      if (val) {
+        const parsed = parseInt(val, 10);
+        guestCount = isNaN(parsed) ? 0 : parsed;
+      }
+    }
+
+    const alumniFee = Number(activeForm.alumniFee) || 0;
+    const guestFee = Number(activeForm.guestFee) || 0;
+    const totalGuestFee = guestCount * guestFee;
+    return alumniFee + totalGuestFee;
+  };
+
   const handleCustomFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const activeForm = customForms.find(f => f.registerNowActive === true);
     if (!activeForm) return;
 
     if (activeForm.permission === 'login_required' && !currentUser) {
-      alert('এই ফর্মটি পূরণের জন্য অনুগ্রহ করে অ্যাকাউন্ট লগইন বা সাইন আপ করুন।');
+      Swal.fire({
+        icon: 'warning',
+        title: 'অ্যাক্সেস ডিনাইড!',
+        text: 'এই ফর্মটি পূরণের জন্য অনুগ্রহ করে অ্যাকাউন্ট লগইন বা সাইন আপ করুন।',
+      });
       return;
     }
 
@@ -183,7 +214,11 @@ function AlumniAppContent() {
       const allowedBatch = activeForm.restrictedBatch?.trim();
       const userBatch = currentUser?.batch?.trim();
       if (allowedBatch && userBatch !== allowedBatch) {
-        alert(`দুঃখিত! এই ফর্মটি শুধুমাত্র এসএসসি ${allowedBatch} পাসের ব্যাচের শিক্ষার্থীদের জন্য সীমাবদ্ধ।`);
+        Swal.fire({
+          icon: 'error',
+          title: 'সীমাবদ্ধতা!',
+          text: `দুঃখিত! এই ফর্মটি শুধুমাত্র এসএসসি ${allowedBatch} পাসের ব্যাচের শিক্ষার্থীদের জন্য সীমাবদ্ধ।`,
+        });
         return;
       }
     }
@@ -191,7 +226,41 @@ function AlumniAppContent() {
     const currentFields = customFields.filter(f => f.formId === activeForm.formId);
     for (const f of currentFields) {
       if (f.required && !dynamicFieldsData[f.fieldId]) {
-        alert(`"${f.label}" ফিল্ডটি অবশ্যই পূরণ করতে হবে।`);
+        Swal.fire({
+          icon: 'warning',
+          title: 'তথ্য ফিল্ড ফাঁকা!',
+          text: `"${f.label}" ফিল্ডটি অবশ্যই পূরণ করতে হবে।`,
+        });
+        return;
+      }
+    }
+
+    const isFeeRequired = ((Number(activeForm.alumniFee) || 0) > 0 || (Number(activeForm.guestFee) || 0) > 0);
+    const hasAccounts = !!(activeForm.bkashNumber || activeForm.nagadNumber || activeForm.rocketNumber || (activeForm.cashOptions && activeForm.cashOptions.length > 0));
+    if (isFeeRequired && hasAccounts) {
+      if (!paymentGateway) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'পেমেন্ট গেটওয়ে!',
+          text: 'অনুগ্রহ করে একটি মোবাইল পেমেন্ট গেটওয়ে (বিকাশ/নগদ/রকেট/ক্যাশ) সিলেক্ট করুন।',
+        });
+        return;
+      }
+      if (paymentGateway === 'Cash') {
+         if (!paymentCashOption) {
+            Swal.fire({
+              icon: 'warning',
+              title: 'ক্যাশ অপশন!',
+              text: 'অনুগ্রহ করে একটি ক্যাশ অপশন সিলেক্ট করুন।',
+            });
+            return;
+         }
+      } else if (paymentGateway !== 'Cash' && !paymentScreenshot && !paymentTrxId.trim()) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'পেমেন্ট যাচাইকরণ!',
+          text: 'অনুগ্রহ করে পেমেন্ট সফল হওয়ার স্ক্রিনশট আপলোড করুন অথবা ট্রানজেকশন আইডি (TrxID) প্রদান করুন।',
+        });
         return;
       }
     }
@@ -199,22 +268,48 @@ function AlumniAppContent() {
     setFormSubmitting(true);
     try {
       const subId = `sub_${Date.now()}`;
+      const finalData = { ...dynamicFieldsData };
+      if (paymentGateway) {
+        finalData['paymentGateway'] = paymentGateway;
+      }
+      if (paymentGateway === 'Cash' && paymentCashOption) {
+        finalData['paymentCashOption'] = paymentCashOption;
+      }
+      if (paymentScreenshot) {
+        finalData['paymentScreenshot'] = paymentScreenshot;
+      }
+      if (paymentTrxId.trim()) {
+        finalData['paymentTrxId'] = paymentTrxId.trim();
+      }
+      finalData['amount'] = getFormTotalAmount(activeForm, dynamicFieldsData);
+
       await setDoc(doc(db, 'form_submissions', subId), {
         submissionId: subId,
         formId: activeForm.formId,
         userId: currentUser?.uid || 'anonymous',
         userName: currentUser?.name || 'Anonymous User',
         userEmail: currentUser?.email || 'N/A',
-        data: dynamicFieldsData,
+        data: finalData,
         submittedAt: new Date().toISOString()
       });
 
-      alert(activeForm.successMessage || 'আপনার ডাটা সফলভাবে ফর্মে সাবমিট করা হয়েছে!');
+      Swal.fire({
+        icon: 'success',
+        title: 'সফল!',
+        text: activeForm.successMessage || 'আপনার ডাটা সফলভাবে ফর্মে সাবমিট করা হয়েছে!',
+      });
       setDynamicFieldsData({});
+      setPaymentGateway('');
+      setPaymentScreenshot('');
+      setPaymentTrxId('');
       setRegSuccess(true);
     } catch (err) {
       console.error(err);
-      alert('তথ্য সাবমিট করতে ত্রুটি হয়েছে। অনুগ্রহ করে আবার ট্রাই করুন।');
+      Swal.fire({
+        icon: 'error',
+        title: 'ত্রুটি!',
+        text: 'তথ্য সাবমিট করতে ত্রুটি হয়েছে। অনুগ্রহ করে আবার ট্রাই করুন।',
+      });
     } finally {
       setFormSubmitting(false);
     }
@@ -267,7 +362,11 @@ function AlumniAppContent() {
       setShowLoginModal(false);
       setCurrentTab('register');
     } catch (err: any) {
-      alert("নিবন্ধনে সমস্যা হয়েছে: " + err.message);
+      Swal.fire({
+        icon: 'error',
+        title: 'নিবন্ধনে ত্রুটি!',
+        text: err.message,
+      });
     }
   };
 
@@ -278,7 +377,11 @@ function AlumniAppContent() {
       await loginWithEmail(emailInput, passwordInput || 'password123');
       setShowLoginModal(false);
     } catch (err: any) {
-      alert("লগইন ব্যর্থ হয়েছে: " + err.message);
+      Swal.fire({
+        icon: 'error',
+        title: 'লগইন ত্রুটি!',
+        text: err.message,
+      });
     }
   };
 
@@ -634,7 +737,11 @@ function AlumniAppContent() {
                                           const file = event.target.files?.[0];
                                           if (file) {
                                             if (file.size > 3 * 1024 * 1024) {
-                                              alert('ফাইলের সাইজ অনেক বড়! সর্বোচ্চ ৩ মেগাবাইট (3MB) পর্যন্ত ফাইল আপলোড করতে পারবেন।');
+                                              Swal.fire({
+                                                icon: 'error',
+                                                title: 'বড় ফাইল!',
+                                                text: 'ফাইলের সাইজ অনেক বড়! সর্বোচ্চ ৩ মেগাবাইট (3MB) পর্যন্ত ফাইল আপলোড করতে পারবেন।',
+                                              });
                                               return;
                                             }
                                             const reader = new FileReader();
@@ -747,6 +854,205 @@ function AlumniAppContent() {
                               );
                             })}
                         </div>
+
+                        {/* Dynamic Fee Calculation Card */}
+                        {((Number(activeForm.alumniFee) || 0) > 0 || (Number(activeForm.guestFee) || 0) > 0) && (
+                          (() => {
+                            const totalAmount = getFormTotalAmount(activeForm, dynamicFieldsData);
+                            // Also need to re-calculate alumni/guest fees for UI
+                            const guestField = targetFields.find(f => {
+                              const lbl = (f.label || '').toLowerCase();
+                              return lbl.includes('guest') || lbl.includes('guestcount') || lbl.includes('guest count') || lbl.includes('guest_count') || lbl.includes('guestcount') || lbl.includes('অতিথি') || lbl.includes('মেহমান') || lbl.includes('অতিরিক্ত সদস্য');
+                            });
+                            
+                            let guestCount = 0;
+                            if (guestField) {
+                              const val = dynamicFieldsData[guestField.fieldId];
+                              if (val) {
+                                const parsed = parseInt(val, 10);
+                                guestCount = isNaN(parsed) ? 0 : parsed;
+                              }
+                            }
+                            const alumniFee = Number(activeForm.alumniFee) || 0;
+                            const guestFee = Number(activeForm.guestFee) || 0;
+                            const totalGuestFee = guestCount * guestFee;
+
+                            return (
+                              <div className="bg-gradient-to-r from-emerald-50 to-teal-50/40 p-4 rounded-xl border border-emerald-150/60 my-2 space-y-2.5 text-left font-sans shadow-3xs">
+                                <h4 className="text-xs font-extrabold text-emerald-900 flex items-center space-x-1.5 pb-1 border-b border-emerald-150/40">
+                                  <span>💰 ফি হিসাব বিবরণী (Registration Fee Calculation)</span>
+                                </h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
+                                  <div className="bg-white p-2 rounded-lg border border-emerald-150/30">
+                                    <span className="text-gray-400 text-[10px] block font-semibold">অ্যালামনাই নিবন্ধন ফি:</span>
+                                    <strong className="text-gray-800 text-sm font-mono">{alumniFee}/- BDT</strong>
+                                  </div>
+                                  <div className="bg-white p-2 rounded-lg border border-emerald-150/30">
+                                    <span className="text-gray-400 text-[10px] block font-semibold">অতিরিক্ত অতিথি ফি ({guestCount} জন):</span>
+                                    <strong className="text-gray-800 text-sm font-mono">{totalGuestFee > 0 ? `${guestCount} × ${guestFee} = ${totalGuestFee}/- BDT` : '0/- BDT'}</strong>
+                                  </div>
+                                  <div className="bg-emerald-600 text-white p-2 rounded-lg shadow-3xs">
+                                    <span className="text-white/80 text-[10.5px] block font-bold">সর্বমোট প্রদেয় ফি (Total Fee):</span>
+                                    <strong className="text-white text-base font-black font-mono">{totalAmount}/- BDT</strong>
+                                  </div>
+                                </div>
+                                <p className="text-[10px] text-emerald-700 font-medium">
+                                  * অনুগ্রহ করে মোট {totalAmount}/- টাকা আমাদের পেমেন্ট নম্বরে সেন্ড মানি করে পেমেন্ট বিবরণী ফিল্ডে ট্রানজেকশন আইডি যুক্ত করুন।
+                                </p>
+                              </div>
+                            );
+                          })()
+                        )}
+
+                        {/* Selector of payment option of cash numbers */}
+                        {activeForm && ((Number(activeForm.alumniFee) || 0) > 0 || (Number(activeForm.guestFee) || 0) > 0) &&
+                          (activeForm.bkashNumber || activeForm.nagadNumber || activeForm.rocketNumber) && (
+                          <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3.5 text-left font-sans shadow-3xs my-2.5 col-span-full">
+                            <h4 className="text-xs font-extrabold text-slate-800 flex items-center space-x-1.5 border-b pb-1.5 border-slate-200">
+                              <span>📱 টাকা পাঠানোর মোবাইল নম্বর বেছে নিন (Select Payment Gateway)</span>
+                            </h4>
+                            
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              {activeForm.bkashNumber && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPaymentGateway('Bkash (বিকাশ)')}
+                                  className={`p-3 rounded-xl border flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
+                                    paymentGateway === 'Bkash (বিকাশ)'
+                                      ? 'bg-pink-50 border-pink-500 ring-2 ring-pink-500/20'
+                                      : 'bg-white border-gray-200 hover:bg-pink-50/10 hover:border-pink-300'
+                                  }`}
+                                >
+                                  <span className="text-pink-600 font-extrabold text-xs font-sans">বিকাশ (bKash)</span>
+                                  <span className="text-gray-900 font-bold font-mono text-xs mt-1">{activeForm.bkashNumber}</span>
+                                  <span className="text-[10px] text-pink-500 font-medium font-sans mt-0.5">(Send Money)</span>
+                                </button>
+                              )}
+                              {activeForm.nagadNumber && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPaymentGateway('Nagad (নগদ)')}
+                                  className={`p-3 rounded-xl border flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
+                                    paymentGateway === 'Nagad (নগদ)'
+                                      ? 'bg-orange-50 border-orange-500 ring-2 ring-orange-500/20'
+                                      : 'bg-white border-gray-200 hover:bg-orange-50/10 hover:border-orange-300'
+                                  }`}
+                                >
+                                  <span className="text-orange-600 font-extrabold text-xs font-sans">নগদ (Nagad)</span>
+                                  <span className="text-gray-900 font-bold font-mono text-xs mt-1">{activeForm.nagadNumber}</span>
+                                  <span className="text-[10px] text-orange-500 font-medium font-sans mt-0.5">(Send Money)</span>
+                                </button>
+                              )}
+                              {activeForm.rocketNumber && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPaymentGateway('Rocket (রকেট)')}
+                                  className={`p-3 rounded-xl border flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
+                                    paymentGateway === 'Rocket (রকেট)'
+                                      ? 'bg-purple-50 border-purple-500 ring-2 ring-purple-500/20'
+                                      : 'bg-white border-gray-200 hover:bg-purple-50/10 hover:border-purple-300'
+                                  }`}
+                                >
+                                  <span className="text-purple-700 font-extrabold text-xs font-sans">রকেট (Rocket)</span>
+                                  <span className="text-gray-900 font-bold font-mono text-xs mt-1">{activeForm.rocketNumber}</span>
+                                  <span className="text-[10px] text-purple-600 font-medium font-sans mt-0.5">(Send Money)</span>
+                                </button>
+                              )}
+                              {activeForm.cashOptions && activeForm.cashOptions.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPaymentGateway('Cash')}
+                                  className={`p-3 rounded-xl border flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
+                                    paymentGateway === 'Cash'
+                                      ? 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-500/20'
+                                      : 'bg-white border-gray-200 hover:bg-emerald-50/10 hover:border-emerald-300'
+                                  }`}
+                                >
+                                  <span className="text-emerald-600 font-extrabold text-xs font-sans">ক্যাশ (Cash)</span>
+                                  <span className="text-gray-900 font-bold font-mono text-xs mt-1">পেমেন্ট</span>
+                                  <span className="text-[10px] text-emerald-500 font-medium font-sans mt-0.5">(Select Option)</span>
+                                </button>
+                              )}
+                            </div>
+
+                            {paymentGateway === 'Cash' && activeForm.cashOptions && activeForm.cashOptions.length > 0 && (
+                                <div className="mt-4 p-4 rounded-xl border border-emerald-200 bg-emerald-50/50">
+                                  <label className="font-extrabold text-emerald-900 block text-xs font-sans mb-2">ক্যাশ অপশন সিলেক্ট করুন:</label>
+                                  <select 
+                                    value={paymentCashOption}
+                                    onChange={e => setPaymentCashOption(e.target.value)}
+                                    className="w-full border border-emerald-200 rounded-xl px-4 py-3 text-xs focus:ring-1 focus:ring-emerald-400 font-bold bg-white cursor-pointer"
+                                  >
+                                    <option value="">-- অপশন বেছে নিন --</option>
+                                    {activeForm.cashOptions.map((opt: string) => (
+                                      <option key={opt} value={opt}>{opt}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                            )}
+
+                            {/* Screenshot Upload OR Transaction ID Block */}
+                            {paymentGateway !== 'Cash' && (
+                              <div className="border-t border-slate-200 pt-3.5 space-y-3.5">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                  <div className="space-y-2 text-left">
+                                    <label className="font-extrabold text-slate-800 block text-xs font-sans">
+                                      📸 পেমেন্ট সফল হওয়ার স্ক্রিনশট (Upload Screenshot)
+                                    </label>
+                                    <div className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-slate-200">
+                                      <div className="flex-1 w-full">
+                                        <input
+                                          type="file"
+                                          accept="image/*"
+                                          onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                              const r = new FileReader();
+                                              r.onloadend = () => {
+                                                setPaymentScreenshot(r.result as string);
+                                              };
+                                              r.readAsDataURL(file);
+                                            }
+                                          }}
+                                          className="w-full text-xs font-sans text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
+                                        />
+                                      </div>
+                                      {paymentScreenshot && (
+                                        <div className="relative shrink-0 border rounded-lg overflow-hidden bg-gray-50">
+                                          <img src={paymentScreenshot} alt="Screenshot Preview" className="h-10 w-10 object-cover" />
+                                          <button
+                                            type="button"
+                                            onClick={() => setPaymentScreenshot('')}
+                                            className="absolute top-0.5 right-0.5 bg-red-500 text-white font-bold text-[8px] rounded-full h-3.5 w-3.5 flex items-center justify-center p-0 hover:bg-red-650 cursor-pointer shadow-xs border border-white"
+                                            title="মুছে ফেলুন"
+                                          >
+                                            X
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-2 text-left">
+                                    <label className="font-extrabold text-slate-800 block text-xs font-sans">
+                                      🔑 অথবা ট্রানজেকশন আইডি দিন (Or Enter Transaction ID / TrxID)
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={paymentTrxId}
+                                      onChange={(e) => setPaymentTrxId(e.target.value)}
+                                      placeholder="উদাঃ BK82M9S2P1"
+                                      className="w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-1 focus:ring-primary font-mono text-xs bg-white text-gray-800 font-bold"
+                                    />
+                                  </div>
+                                </div>
+                                <p className="text-[10px] text-gray-400 font-medium font-sans">
+                                  * পেমেন্ট ভেরিফিকেশনের জন্য স্ক্রিনশট আপলোড অথবা ট্রানজেকশন আইডি (TrxID) দুটির মধ্যে যেকোনো একটি তথ্য অবশ্যই প্রদান করতে হবে।
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         <div className="flex justify-end pt-3 border-t border-gray-150 gap-2">
                           {totalSteps > 1 && activeCustomFormStep > 1 && (
@@ -1048,7 +1354,11 @@ function AlumniAppContent() {
                         await loginWithGoogle();
                         setShowLoginModal(false);
                       } catch (err) {
-                        alert("গুগল পপআপে সমস্যা হয়েছে। দয়া করে সঠিক ভাবে পপআপ উইন্ডো অ্যালাউ করুন।");
+                        Swal.fire({
+                          icon: 'error',
+                          title: 'ত্রুটি!',
+                          text: 'গুগল পপআপে সমস্যা হয়েছে। দয়া করে সঠিক ভাবে পপআপ উইন্ডো অ্যালাউ করুন।',
+                        });
                       }
                     }}
                     className="w-full bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 py-2.5 rounded-lg font-bold shadow-xs transition flex items-center justify-center space-x-2 cursor-pointer text-xs"

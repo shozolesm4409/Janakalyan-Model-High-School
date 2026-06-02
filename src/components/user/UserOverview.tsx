@@ -21,10 +21,10 @@ export const UserOverview: React.FC<UserOverviewProps> = ({ currentUser, registr
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className="space-y-8"
+      className="space-y-5"
     >
       {/* Greeting Hero card */}
-      <div className="bg-radial-gradient bg-primary text-white p-6 sm:p-8 rounded-2xl relative overflow-hidden shadow-lg border border-primary/20">
+      <div className="bg-radial-gradient bg-primary text-white p-4 sm:p-5 rounded-2xl relative overflow-hidden shadow-lg border border-primary/20">
         <div className="absolute top-0 right-0 h-40 w-40 bg-secondary/10 rounded-full blur-2xl transform translate-x-8 -translate-y-8" />
         <div className="relative z-10 space-y-2">
           <span className="bg-secondary/20 text-secondary border border-secondary/25 text-[10px] uppercase font-bold tracking-widest px-3 py-1 rounded inline-block font-sans">
@@ -40,10 +40,10 @@ export const UserOverview: React.FC<UserOverviewProps> = ({ currentUser, registr
       </div>
 
       {/* Progress Tracking Widget Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         
         {/* Registration tracking detail */}
-        <div className="bg-white rounded-xl border border-gray-150 p-6 shadow-xs relative overflow-hidden flex flex-col justify-between h-56 group hover:shadow-md transition duration-200">
+        <div className="bg-white rounded-xl border border-gray-150 p-4 sm:p-5 shadow-xs relative overflow-hidden flex flex-col justify-between h-48 md:h-52 group hover:shadow-md transition duration-200">
           <div className="absolute top-0 right-0 -mr-6 -mt-6 h-24 w-24 bg-primary/5 rounded-full transform group-hover:scale-110 transition-transform duration-300" />
           <div>
             <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 font-mono">ধাপ ১: পুনর্মিলনী রেজিস্ট্রেশন</div>
@@ -89,7 +89,7 @@ export const UserOverview: React.FC<UserOverviewProps> = ({ currentUser, registr
         </div>
 
         {/* Payment tracking details */}
-        <div className="bg-white rounded-xl border border-gray-150 p-6 shadow-xs relative overflow-hidden flex flex-col justify-between h-56 group hover:shadow-md transition duration-200">
+        <div className="bg-white rounded-xl border border-gray-150 p-4 sm:p-5 shadow-xs relative overflow-hidden flex flex-col justify-between h-48 md:h-52 group hover:shadow-md transition duration-200">
           <div className="absolute top-0 right-0 -mr-6 -mt-6 h-24 w-24 bg-pink-50 rounded-full transform group-hover:scale-110 transition-transform duration-300" />
           <div>
             <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 font-mono">ধাপ ২: ব্যাংক / মোবাইল পেমেন্ট স্লিপ</div>
@@ -137,7 +137,7 @@ export const UserOverview: React.FC<UserOverviewProps> = ({ currentUser, registr
       </div>
 
       {/* Important alert instructions guidelines */}
-      <div className="border border-blue-150 bg-blue-50/20 rounded-2xl p-6 sm:p-8 text-xs sm:text-sm text-gray-600 leading-relaxed flex items-start space-x-4">
+      <div className="border border-blue-150 bg-blue-50/20 rounded-2xl p-4 sm:p-5 text-xs sm:text-sm text-gray-600 leading-relaxed flex items-start space-x-4">
         <span className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center text-primary shrink-0 mt-0.5">
           <AlertCircle className="h-5 w-5" />
         </span>
@@ -150,7 +150,7 @@ export const UserOverview: React.FC<UserOverviewProps> = ({ currentUser, registr
       </div>
 
       {/* Quick Profile Read-Only Widget */}
-      <div className="bg-white rounded-2xl border border-gray-150 p-6 sm:p-8 space-y-6">
+      <div className="bg-white rounded-2xl border border-gray-150 p-4 sm:p-5 space-y-4">
         <div className="flex items-center space-x-2 pb-3 border-b border-gray-100">
           <UserIcon className="h-5 w-5 text-primary" />
           <h3 className="text-base font-bold text-gray-800">অ্যালামনাই মূল প্রোফাইল সংক্ষিপ্ত বিবরণ</h3>

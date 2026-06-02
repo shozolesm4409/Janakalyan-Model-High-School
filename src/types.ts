@@ -145,6 +145,12 @@ export interface CustomForm {
   paymentInstructions?: string;
   submitBtnText?: string;
   totalSteps?: number;
+  alumniFee?: number;
+  guestFee?: number;
+  bkashNumber?: string;
+  nagadNumber?: string;
+  rocketNumber?: string;
+  cashOptions?: string[];
 }
 
 export interface CustomFormField {
@@ -166,4 +172,5 @@ export interface CustomFormSubmission {
   userEmail: string;
   submittedAt: string;
   data: Record<string, any>;
+  status?: 'pending' | 'approved' | 'rejected';
 }

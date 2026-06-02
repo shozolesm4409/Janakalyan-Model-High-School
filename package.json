@@ -24,6 +24,8 @@
     "react-easy-crop": "^5.5.7",
     "react-hook-form": "^7.77.0",
     "recharts": "^3.8.1",
+    "sweetalert2": "^11.26.25",
+    "sweetalert2-react-content": "^5.1.2",
     "vite": "^6.2.3",
     "zod": "^4.4.3"
   },

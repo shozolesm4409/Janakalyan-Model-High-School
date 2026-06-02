@@ -17,6 +17,7 @@ import {
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { User, UserRole } from '../types';
+import Swal from 'sweetalert2';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -213,7 +214,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentUser(demoUser);
     } catch (error) {
       console.error('Demo login failed:', error);
-      alert("ডেমো লগইন করতে ব্যর্থ হয়েছে। দয়া করে গুগল লগইন ব্যবহার করুন অথবা আবার চেষ্টা করুন।");
+      Swal.fire({
+        icon: 'error',
+        title: 'লগইন ব্যর্থ!',
+        text: 'ডেমো লগইন করতে ব্যর্থ হয়েছে। দয়া করে গুগল লগইন ব্যবহার করুন অথবা আবার চেষ্টা করুন।',
+      });
     } finally {
       setLoading(false);
     }

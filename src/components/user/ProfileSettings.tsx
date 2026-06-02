@@ -50,14 +50,14 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className="max-w-2xl bg-white rounded-2xl shadow-sm border border-gray-150 p-6 sm:p-10 space-y-8 font-sans"
+      className="max-w-2xl bg-white rounded-2xl shadow-sm border border-gray-150 p-4 sm:p-6 space-y-5 font-sans"
     >
       <div className="flex items-center space-x-2 pb-4 border-b border-gray-100">
         <Settings className="h-5.5 w-5.5 text-primary" />
         <h3 className="text-lg font-bold text-gray-800">অ্যালামনাই প্রোফাইল সম্পাদন করুন</h3>
       </div>
       
-      <form onSubmit={handleSaveProfile} className="space-y-8 text-left">
+      <form onSubmit={handleSaveProfile} className="space-y-5 text-left">
         {/* Avatar Upload Dropzone */}
         <div className="flex flex-col items-center justify-center space-y-4">
           <div 

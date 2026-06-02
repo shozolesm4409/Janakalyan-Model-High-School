@@ -17,6 +17,7 @@ import {
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import Swal from 'sweetalert2';
 
 export const FormBuilder: React.FC = () => {
   const [forms, setForms] = React.useState<CustomForm[]>([]);
@@ -73,17 +74,43 @@ export const FormBuilder: React.FC = () => {
       setActiveFormId(formId);
     } catch (err) {
       console.error(err);
-      alert('ফরম তৈরি করতে সমস্যা হয়েছে।');
+      Swal.fire({
+        icon: 'error',
+        title: 'ত্রুটি!',
+        text: 'ফরম তৈরি করতে সমস্যা হয়েছে।',
+      });
     }
   };
 
   const handleDeleteForm = async (id: string) => {
-    if (!confirm('আপনি কি নিশ্চিত যে এই ফরমটি ডিলিট করতে চান? ')) return;
-    try {
-      await deleteDoc(doc(db, 'forms', id));
-      if (activeFormId === id) setActiveFormId(null);
-    } catch (err) {
-      console.error(err);
+    const result = await Swal.fire({
+      title: 'আপনি কি নিশ্চিত?',
+      text: "আপনি কি নিশ্চিত যে এই ফরমটি ডিলিট করতে চান?",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'হ্যাঁ, ডিলিট করুন!',
+      cancelButtonText: 'না'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await deleteDoc(doc(db, 'forms', id));
+        if (activeFormId === id) setActiveFormId(null);
+        Swal.fire(
+          'ডিলিট করা হয়েছে!',
+          'ফরমটি সফলভাবে ডিলিট করা হয়েছে।',
+          'success'
+        );
+      } catch (err) {
+        console.error(err);
+        Swal.fire({
+          icon: 'error',
+          title: 'ত্রুটি!',
+          text: 'ডিলিট করতে সমস্যা হয়েছে।',
+        });
+      }
     }
   };
 

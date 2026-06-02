@@ -8,11 +8,13 @@ import {
   Menu, 
   LayoutDashboard, 
   Users, 
+  ShieldCheck,
   Calendar, 
   Bell, 
   Image, 
   Sliders, 
-  ClipboardList 
+  ClipboardList, 
+  TrendingUp 
 } from 'lucide-react';
 
 interface SidebarTab {
@@ -42,14 +44,16 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
 }) => {
   const adminSidebarTabs: SidebarTab[] = [
     { id: 'overview', label: 'সার্বিক ওভারভিউ', subtitle: 'Overview & Charts', icon: LayoutDashboard },
-    { id: 'registrations', label: 'আবেদন ভেরিফিকেশন', subtitle: 'Verification Queue', icon: Users, badge: 'Needs Action' },
-    { id: 'payments', label: 'পেমেন্ট ভেরিফিকেশন', subtitle: 'Track Financial Slips', icon: CreditCard },
+    { id: 'registrations', label: 'আবেদন ভেরিফিকেশন', subtitle: 'Verification Queue', icon: Users },
+    { id: 'users', label: 'ইউজার ম্যানেজমেন্ট', subtitle: 'Global Member List', icon: ShieldCheck },
     { id: 'committee', label: 'কমিটি মেম্বার', subtitle: 'Manage Committee List', icon: Award },
     { id: 'events', label: 'কর্মসূচী ম্যানেজার', subtitle: 'Event Program Scheduler', icon: Calendar },
     { id: 'notices', label: 'ঘোষণা ও নোটিশ', subtitle: 'Publish Noticeboard', icon: Bell },
     { id: 'gallery', label: 'স্মৃতি গ্যালারি', subtitle: 'Upload Historical Photos', icon: Image },
     { id: 'form_builder', label: 'ডায়নামিক ফর্ম বিল্ডার', subtitle: 'Unlimited Form Creator', icon: Sliders },
+    { id: 'form_visibility', label: 'ফর্ম ভিজিবিলিটি এবং সামারি', subtitle: 'Form Visibility & Counters', icon: CheckCircle },
     { id: 'form_submissions', label: 'ফর্ম সাবমিশন ডাটা', subtitle: 'Track Dynamic Submissions', icon: ClipboardList },
+    { id: 'form_dashboard', label: 'ফর্ম ড্যাশবোর্ড', subtitle: 'Form Summary & Payments', icon: TrendingUp },
   ];
 
   const renderTabButton = (tab: SidebarTab, isMobile: boolean = false) => {
@@ -63,7 +67,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           setActiveSubTab(tab.id);
           if (isMobile) setMobileSidebarOpen(false);
         }}
-        className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-all duration-200 cursor-pointer ${
+        className={`w-full text-left px-3.5 py-1.5 rounded-xl flex items-center justify-between transition-all duration-200 cursor-pointer ${
           isActive 
             ? 'bg-primary text-white font-bold shadow-md shadow-primary/10' 
             : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
@@ -90,8 +94,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   return (
     <>
       {/* DESKTOP SIDEBAR */}
-      <aside id="admin-desktop-sidebar" className="hidden lg:flex w-72 shrink-0 flex-col bg-white rounded-2xl border border-gray-150 p-6 shadow-sm sticky top-24 space-y-7 group">
-        <div className="flex flex-col items-center text-center space-y-3 pb-6 border-b border-gray-100">
+      <aside id="admin-desktop-sidebar" className="hidden lg:flex w-64 shrink-0 flex-col bg-white rounded-2xl border border-gray-150 p-4 shadow-sm sticky top-24 space-y-5 group">
+        <div className="flex flex-col items-center text-center space-y-2.5 pb-4 border-b border-gray-100">
           <div className="relative">
             <img
               src={currentUser?.profilePhoto || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=150'}

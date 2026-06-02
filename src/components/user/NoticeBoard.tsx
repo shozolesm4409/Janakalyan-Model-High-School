@@ -14,7 +14,7 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({ notices }) => {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
-      className="bg-white rounded-2xl shadow-sm border border-gray-150 p-6 sm:p-8 space-y-6"
+      className="bg-white rounded-2xl shadow-sm border border-gray-150 p-4 sm:p-5 space-y-4"
     >
       <div className="flex items-center space-x-2 pb-3 border-b border-gray-100">
         <Bell className="h-5.5 w-5.5 text-primary" />
@@ -31,7 +31,7 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({ notices }) => {
           notices.map((notice) => (
             <div 
               key={notice.noticeId} 
-              className="border border-gray-150 rounded-xl p-5 bg-slate-50/50 hover:bg-white hover:shadow-xs transition duration-200 border-l-4 border-l-primary text-left"
+              className="border border-gray-150 rounded-xl p-4 bg-slate-50/50 hover:bg-white hover:shadow-xs transition duration-200 border-l-4 border-l-primary text-left"
             >
               <div className="flex justify-between items-center text-[10px] text-primary font-bold font-mono">
                 <span className="bg-primary/10 px-2.5 py-0.5 rounded">📢 অফিসিয়াল ঘোষণা</span>

@@ -28,7 +28,7 @@ export const DigitalCertificateTab: React.FC<DigitalCertificateTabProps> = ({
       className="space-y-6"
     >
       {isApproved ? (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-150 p-6 sm:p-8 space-y-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-150 p-4 sm:p-5 space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 border-b gap-4">
             <div className="flex items-center space-x-3">
               <div className="h-10 w-10 bg-primary/10 text-primary rounded-full flex items-center justify-center">
@@ -57,7 +57,7 @@ export const DigitalCertificateTab: React.FC<DigitalCertificateTabProps> = ({
           />
         </div>
       ) : (
-        <div className="border border-amber-200 bg-amber-50/15 rounded-2xl p-8 sm:p-12 text-center space-y-5 max-w-xl mx-auto my-6 shadow-sm">
+        <div className="border border-amber-200 bg-amber-50/15 rounded-2xl p-5 sm:p-6 text-center space-y-4 max-w-xl mx-auto my-4 shadow-sm">
           <div className="h-16 w-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto shadow-inner transform rotate-12">
             <Award className="h-8 w-8" />
           </div>

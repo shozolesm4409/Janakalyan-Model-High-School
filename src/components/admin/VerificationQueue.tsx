@@ -33,15 +33,6 @@ export const VerificationQueue: React.FC<VerificationQueueProps> = ({
   return (
     <div className="space-y-8 animate-fade-in text-left">
       <div className="bg-white rounded-xl border border-gray-150 p-6 shadow-xs">
-        <div className="flex justify-between items-center border-b pb-4 mb-4">
-          <div className="flex items-center space-x-2">
-            <Clock className="h-5 w-5 text-amber-500" />
-            <h3 className="font-bold text-gray-800 text-sm font-sans">পেন্ডিং ভেরিফিকেশন কিউ (Pending Verification Queue)</h3>
-          </div>
-          <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-tighter">
-            {pendingRegistrations.length} Applications Waiting
-          </span>
-        </div>
 
         {pendingRegistrations.length === 0 ? (
           <div className="text-center py-20 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
@@ -65,21 +56,21 @@ export const VerificationQueue: React.FC<VerificationQueueProps> = ({
                   const pay = payments.find(p => p.registrationId === reg.registrationId);
                   return (
                     <tr key={reg.registrationId} className="hover:bg-blue-50/30 transition">
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-1">
                         <div className="flex flex-col">
                           <strong className="text-gray-900 font-extrabold">{reg.personalInfo?.fullName || reg.name || 'Unknown'}</strong>
                           <span className="text-[10px] text-gray-400 font-mono">ID: {reg.registrationId}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-gray-600 font-bold">SSC {reg.academicInfo?.passingYear || 'N/A'}</td>
-                      <td className="px-4 py-4 text-gray-500">{reg.submittedAt ? new Date(reg.submittedAt).toLocaleDateString() : 'Today'}</td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-1 text-gray-600 font-bold">SSC {reg.academicInfo?.passingYear || 'N/A'}</td>
+                      <td className="px-4 py-1 text-gray-500">{reg.submittedAt ? new Date(reg.submittedAt).toLocaleDateString() : 'Today'}</td>
+                      <td className="px-4 py-1">
                         <div className="flex flex-col">
                           <strong className="text-pink-600 font-black">{pay?.amount || 0} BDT</strong>
                           <span className="text-[10px] text-gray-400 uppercase font-bold tracking-tight">{pay?.paymentMethod || 'Mobile'}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-right">
+                      <td className="px-4 py-1 text-right">
                         <div className="flex items-center justify-end space-x-2">
                           <button 
                             onClick={() => setSelectedReg(reg)}

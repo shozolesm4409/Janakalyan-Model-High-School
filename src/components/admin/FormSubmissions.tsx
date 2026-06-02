@@ -17,6 +17,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import Swal from 'sweetalert2';
 
 export const FormSubmissions: React.FC = () => {
   const [submissions, setSubmissions] = React.useState<CustomFormSubmission[]>([]);
@@ -44,11 +45,33 @@ export const FormSubmissions: React.FC = () => {
   }, []);
 
   const handleDelete = async (id: string) => {
-    if (!confirm('আপনি কি নিশ্চিত যে এই আবেদনটি মুছে ফেলতে চান?')) return;
-    try {
-      await deleteDoc(doc(db, 'form_submissions', id));
-    } catch (err) {
-      console.error(err);
+    const result = await Swal.fire({
+      title: 'আপনি কি নিশ্চিত?',
+      text: "আপনি কি নিশ্চিত যে এই আবেদনটি মুছে ফেলতে চান?",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'হ্যাঁ, মুছে ফেলুন!',
+      cancelButtonText: 'না'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await deleteDoc(doc(db, 'form_submissions', id));
+        Swal.fire(
+          'মুছে ফেলা হয়েছে!',
+          'আবেদনটি সফলভাবে মুছে ফেলা হয়েছে।',
+          'success'
+        );
+      } catch (err) {
+        console.error(err);
+        Swal.fire({
+          icon: 'error',
+          title: 'ত্রুটি!',
+          text: 'মুছে ফেলতে সমস্যা হয়েছে।',
+        });
+      }
     }
   };
 
@@ -144,13 +167,14 @@ export const FormSubmissions: React.FC = () => {
                 <th className="px-6 py-4">আবেদনকারী ও ফরম</th>
                 <th className="px-6 py-4">জমাদানের সময়</th>
                 <th className="px-6 py-4">স্ট্যাটাস</th>
+                <th className="px-6 py-4">অ্যামাউন্ট</th>
                 <th className="px-6 py-4 text-right">অ্যাকশন</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-xs">
               {filteredSubmissions.map((sub) => (
                 <tr key={sub.submissionId} className="hover:bg-gray-50/50 transition">
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-1">
                     <div className="flex items-center space-x-3">
                       <div className="h-8 w-8 bg-primary/5 rounded-lg flex items-center justify-center text-primary font-bold">
                         {sub.userName?.charAt(0) || 'U'}
@@ -163,22 +187,25 @@ export const FormSubmissions: React.FC = () => {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-1">
                      <div className="flex items-center space-x-2 text-gray-500">
                         <Clock className="h-3 w-3" />
                         <span>{sub.submittedAt}</span>
                      </div>
                   </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase ${
-                      sub.status === 'approved' ? 'bg-green-100 text-green-600' :
-                      sub.status === 'rejected' ? 'bg-red-100 text-red-600' :
-                      'bg-amber-100 text-amber-600'
+                  <td className="px-6 py-1">
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                      sub.status === 'approved' ? 'bg-green-100 text-green-800' :
+                      sub.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                      'bg-amber-100 text-amber-800'
                     }`}>
                       {sub.status || 'pending'}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-1 font-bold text-gray-900">
+                    {sub.data?.amount ? `${sub.data.amount} ৳` : '-'}
+                  </td>
+                  <td className="px-6 py-1">
                     <div className="flex items-center justify-end space-x-2">
                        <button 
                          onClick={() => setSelectedSubId(sub.submissionId)}
@@ -257,6 +284,16 @@ export const FormSubmissions: React.FC = () => {
                    </div>
                    <div className="text-xs font-bold text-primary">{selectedSub.formTitle}</div>
                 </div>
+                <div className="space-y-1">
+                   <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">টোটাল পেমেন্ট (Amount)</div>
+                   <div className="text-sm font-bold text-gray-800">{selectedSub.data?.amount ? `${selectedSub.data.amount} ৳` : '0 ৳'}</div>
+                </div>
+                {selectedSub.data?.paymentCashOption && (
+                  <div className="space-y-1">
+                     <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">পেমেন্ট মেথড (Cash Option)</div>
+                     <div className="text-sm font-bold text-emerald-700">{selectedSub.data.paymentCashOption}</div>
+                  </div>
+                )}
               </div>
 
               {/* Submitted Data Fields */}
@@ -288,7 +325,7 @@ export const FormSubmissions: React.FC = () => {
                      selectedSub.status === 'approved' ? 'bg-green-600 text-white' : 'bg-green-50 text-green-600 hover:bg-green-100'
                    }`}
                  >
-                   <CheckCircle className="h-4 w-4" /> অনুমোদিত (Approve)
+                   <CheckCircle className="h-4 w-4" /> {selectedSub.status === 'approved' ? 'অনুমোদিত' : 'অনুমোদন দিন (Approve)'}
                  </button>
                  <button 
                    onClick={() => handleUpdateStatus(selectedSub.submissionId, 'rejected')}
@@ -296,7 +333,7 @@ export const FormSubmissions: React.FC = () => {
                      selectedSub.status === 'rejected' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-600 hover:bg-red-100'
                    }`}
                  >
-                   <XCircle className="h-4 w-4" /> নাকচ করুন (Reject)
+                   <XCircle className="h-4 w-4" /> {selectedSub.status === 'rejected' ? 'নাকচ করা হয়েছে' : 'নাকচ করুন (Reject)'}
                  </button>
               </div>
             </motion.div>

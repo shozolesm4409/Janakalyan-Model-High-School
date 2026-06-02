@@ -45,6 +45,23 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
       
       {/* Quick numbers cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
+        {/* Active Register Form Highlight Card (NEW) */}
+        {customForms.find(f => f.registerNowActive) && (
+          <div className="bg-primary rounded-xl shadow-lg border border-primary p-5 flex items-center space-x-4 text-white xl:col-span-1">
+            <div className="p-3 bg-white/20 rounded-lg">
+              <TrendingUp className="h-6 w-6" />
+            </div>
+            <div className="leading-tight text-left overflow-hidden">
+              <span className="text-[10px] font-black uppercase tracking-widest block opacity-70">Register Now Form</span>
+              <span className="text-sm font-extrabold block truncate mb-1">
+                {customForms.find(f => f.registerNowActive)?.title}
+              </span>
+              <span className="text-xl font-black font-mono block">
+                {customSubmissions.filter(s => s.formId === customForms.find(f => f.registerNowActive)?.formId).length}
+              </span>
+            </div>
+          </div>
+        )}
         
         <div className="bg-white rounded-xl shadow-sm border border-gray-150 p-5 flex items-center space-x-4">
           <div className="p-3 bg-blue-50 rounded-lg text-primary">
@@ -128,7 +145,7 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <CreditCard className="h-5 w-5 text-primary" />
-              <h3 className="text-base font-bold text-gray-800">পেমেন্ট ভেরিফিকেশন স্ট্যাটাস</h3>
+              <h3 className="text-base font-bold text-gray-800">পেমেন্ট কালেকশন স্ট্যাটাস</h3>
             </div>
           </div>
           <div className="h-64 sm:h-80 w-full pt-4">
@@ -152,6 +169,23 @@ export const AdminOverview: React.FC<AdminOverviewProps> = ({
               </PieChart>
             </ResponsiveContainer>
           </div>
+        </div>
+      </div>
+
+      {/* Form Wise Summary */}
+      <div className="bg-white p-6 rounded-2xl border border-gray-150 shadow-sm space-y-4">
+        <h3 className="font-bold text-gray-800">ফর্ম ওয়াইজ কালেকশন সামারি</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {customForms.map(form => {
+            const subsForForm = customSubmissions.filter(s => s.formId === form.formId && s.status === 'approved');
+            const totalAmount = subsForForm.reduce((sum, s) => sum + (Number(s.data?.amount) || 0), 0);
+            return (
+              <div key={form.formId} className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex justify-between items-center">
+                <span className="text-xs font-bold text-gray-600">{form.title}</span>
+                <span className="text-sm font-black text-primary">{totalAmount.toLocaleString()} ৳</span>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

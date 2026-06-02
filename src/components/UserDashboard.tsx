@@ -38,12 +38,14 @@ import {
   BookOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import Swal from 'sweetalert2';
 import { UserSidebar } from './UserSidebar';
 import { UserOverview } from './user/UserOverview';
 import { NoticeBoard } from './user/NoticeBoard';
 import { JubileeEvents } from './user/JubileeEvents';
 import { DigitalCertificateTab } from './user/DigitalCertificateTab';
 import { ProfileSettings } from './user/ProfileSettings';
+import { SubmissionCard } from './user/SubmissionCard';
 
 interface UserDashboardProps {
   setCurrentTab?: (tab: string) => void;
@@ -65,6 +67,9 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
   
   // Track inputs for active custom dynamic form fields
   const [dynamicFieldsData, setDynamicFieldsData] = useState<Record<string, any>>({});
+  const [paymentGateway, setPaymentGateway] = useState<string>('');
+  const [paymentScreenshot, setPaymentScreenshot] = useState<string>('');
+  const [paymentTrxId, setPaymentTrxId] = useState<string>('');
 
   // Selected Tab state within User Portal Sidebar
   const [activeSubTab, setActiveSubTab] = useState<'overview' | 'certificate' | 'events' | 'profile' | 'notices' | 'apply'>('overview');
@@ -330,11 +335,21 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
         data: editFormData,
         updatedAt: new Date().toISOString()
       });
-      alert('আবেদনপত্রটি সফলভাবে আপডেট করা হয়েছে!');
+      Swal.fire({
+        icon: 'success',
+        title: 'আপডেট সফল!',
+        text: 'আবেদনপত্রটি সফলভাবে আপডেট করা হয়েছে!',
+        timer: 2000,
+        showConfirmButton: false
+      });
       setEditingClassicSub(null);
     } catch (err) {
       console.error(err);
-      alert('আপডেট করতে ত্রুটি হয়েছে। অনুগ্রহ করে আবার ট্রাই করুন।');
+      Swal.fire({
+        icon: 'error',
+        title: 'ত্রুটি!',
+        text: 'আপডেট করতে ত্রুটি হয়েছে। অনুগ্রহ করে আবার ট্রাই করুন।',
+      });
     } finally {
       setIsUpdatingSub(false);
     }
@@ -349,11 +364,21 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
         data: editFormData,
         updatedAt: new Date().toISOString()
       });
-      alert('আবেদনপত্রটি সফলভাবে আপডেট করা হয়েছে!');
+      Swal.fire({
+        icon: 'success',
+        title: 'আপডেট সফল!',
+        text: 'আবেদনপত্রটি সফলভাবে আপডেট করা হয়েছে!',
+        timer: 1500,
+        showConfirmButton: false
+      });
       setEditingCustomSub(null);
     } catch (err) {
       console.error(err);
-      alert('আপডেট করতে ত্রুটি হয়েছে। অনুগ্রহ করে আবার ট্রাই করুন।');
+      Swal.fire({
+        icon: 'error',
+        title: 'ত্রুটি!',
+        text: 'আপডেট করতে ত্রুটি হয়েছে। অনুগ্রহ করে আবার ট্রাই করুন।',
+      });
     } finally {
       setIsUpdatingSub(false);
     }
@@ -385,11 +410,19 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
 
   const handleImageUpload = (file: File) => {
     if (!file.type.startsWith('image/')) {
-      alert('দয়া করে একটি সঠিক ছবি ফাইল (.jpg, .png, .jpeg, .webp) নির্বাচন করুন।');
+      Swal.fire({
+        icon: 'error',
+        title: 'ভুল ফাইল ফরম্যাট!',
+        text: 'দয়া করে একটি সঠিক ছবি ফাইল (.jpg, .png, .jpeg, .webp) নির্বাচন করুন।',
+      });
       return;
     }
     if (file.size > 2 * 1024 * 1024) {
-      alert('ছবির সাইজ অনেক বড়! সর্বোচ্চ ২ মেগাবাইট (2MB) সাইজের ছবি নির্বাচন করুন।');
+      Swal.fire({
+        icon: 'error',
+        title: 'বড় ফাইল সাইজ!',
+        text: 'ছবির সাইজ অনেক বড়! সর্বোচ্চ ২ মেগাবাইট (2MB) সাইজের ছবি নির্বাচন করুন।',
+      });
       return;
     }
 
@@ -415,11 +448,21 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
       await refreshUserProfile();
       setEditing(false);
       setActiveSubTab('overview');
-      alert("আপনার প্রোফাইল আপডেট করা হয়েছে!");
+      Swal.fire({
+        icon: 'success',
+        title: 'আপডেট সফল!',
+        text: "আপনার প্রোফাইল আপডেট করা হয়েছে!",
+        timer: 1500,
+        showConfirmButton: false
+      });
     } catch (err) {
       console.error(err);
       handleFirestoreError(err, OperationType.UPDATE, 'users');
-      alert("প্রোফাইল আপডেট করতে সমস্যা হয়েছে।");
+      Swal.fire({
+        icon: 'error',
+        title: 'ত্রুটি!',
+        text: "প্রোফাইল আপডেট করতে সমস্যা হয়েছে।",
+      });
     } finally {
       setSaving(false);
     }
@@ -435,7 +478,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
 
       if (activeFormType === 'id_card') {
         if (!idName.trim() || !idMobile.trim() || !idBatch.trim()) {
-          alert('অনুগ্রহ করে সব তারকা (*) চিহ্নিত তথ্য প্রদান করুন।');
+          Swal.fire({
+            icon: 'warning',
+            title: 'অসম্পূর্ণ তথ্য!',
+            text: 'অনুগ্রহ করে সব তারকা (*) চিহ্নিত তথ্য প্রদান করুন।',
+          });
           setFormSubmitting(false);
           return;
         }
@@ -450,7 +497,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
         formLabel = 'ডিজিটাল অ্যালামনাই আইডি কার্ডের আবেদন (Digital Alumni ID Card)';
       } else if (activeFormType === 'mentorship') {
         if (!mentorBio.trim()) {
-          alert('অনুগ্রহ করে আপনার বায়ো ও কারিগরি দক্ষতা সঠিকভাবে লিখুন।');
+          Swal.fire({
+            icon: 'warning',
+            title: 'অসম্পূর্ণ!',
+            text: 'অনুগ্রহ করে আপনার বায়ো ও কারিগরি দক্ষতা সঠিকভাবে লিখুন।',
+          });
           setFormSubmitting(false);
           return;
         }
@@ -465,7 +516,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
         formLabel = 'ক্যারিয়ার মেন্টরশিপ হাবে ভলান্টিয়ার আবেদন (Career Mentorship)';
       } else if (activeFormType === 'magazine') {
         if (!articleTitle.trim() || !articleContent.trim()) {
-          alert('অনুগ্রহ করে শিরোনাম এবং মূল লেখার কন্টেন্ট সঠিকভাবে লিখুন।');
+          Swal.fire({
+            icon: 'warning',
+            title: 'অসম্পূর্ণ!',
+            text: 'অনুগ্রহ করে শিরোনাম এবং মূল লেখার কন্টেন্ট সঠিকভাবে লিখুন।',
+          });
           setFormSubmitting(false);
           return;
         }
@@ -489,7 +544,13 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
         status: 'pending'
       });
 
-      alert('আপনার আবেদনটি সফলভাবে সাবমিট করা হয়েছে!');
+      Swal.fire({
+        icon: 'success',
+        title: 'সাবমিট সফল!',
+        text: 'আপনার আবেদনটি সফলভাবে সাবমিট করা হয়েছে!',
+        timer: 2000,
+        showConfirmButton: false
+      });
       setArticleTitle('');
       setArticleContent('');
       setMentorBio('');
@@ -500,7 +561,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
       setIdAddress('');
     } catch (err) {
       console.error(err);
-      alert('আবেদন জমা দিতে সমস্যা হয়েছে।');
+      Swal.fire({
+        icon: 'error',
+        title: 'ত্রুটি!',
+        text: 'আবেদন জমা দিতে সমস্যা হয়েছে।',
+      });
     } finally {
       setFormSubmitting(false);
     }
@@ -518,7 +583,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
     if (!currentForm) return;
 
     if (currentForm.permission === 'login_required' && !currentUser) {
-      alert('এই ফর্মটি পূরণের জন্য অনুগ্রহ করে প্রোফাইল লগইন করুন।');
+      Swal.fire({
+        icon: 'warning',
+        title: 'লগইন আবশ্যক!',
+        text: 'এই ফর্মটি পূরণের জন্য অনুগ্রহ করে প্রোফাইল লগইন করুন।',
+      });
       return;
     }
 
@@ -526,7 +595,32 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
       const allowedBatch = currentForm.restrictedBatch?.trim();
       const userBatch = currentUser.batch?.trim();
       if (allowedBatch && userBatch !== allowedBatch) {
-        alert(`দুঃখিত! এই ফর্মটি শুধুমাত্র এসএসসি ${allowedBatch} পাসের ব্যাচের শিক্ষার্থীদের জন্য প্রযোজ্য।`);
+        Swal.fire({
+          icon: 'error',
+          title: 'অনুমতি নেই!',
+          text: `দুঃখিত! এই ফর্মটি শুধুমাত্র এসএসসি ${allowedBatch} পাসের ব্যাচের শিক্ষার্থীদের জন্য প্রযোজ্য।`,
+        });
+        return;
+      }
+    }
+
+    const isFeeRequired = ((Number(currentForm.alumniFee) || 0) > 0 || (Number(currentForm.guestFee) || 0) > 0);
+    const hasAccounts = !!(currentForm.bkashNumber || currentForm.nagadNumber || currentForm.rocketNumber);
+    if (isFeeRequired && hasAccounts) {
+      if (!paymentGateway) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'পেমেন্ট মেথড!',
+          text: 'অনুগ্রহ করে একটি মোবাইল পেমেন্ট গেটওয়ে (বিকাশ/নগদ/রকেট) সিলেক্ট করুন।',
+        });
+        return;
+      }
+      if (!paymentScreenshot && !paymentTrxId.trim()) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'পেমেন্ট প্রুফ!',
+          text: 'অনুগ্রহ করে পেমেন্ট সফল হওয়ার স্ক্রিনশট আপলোড করুন অথবা ট্রানজেকশন আইডি (TrxID) প্রদান করুন।',
+        });
         return;
       }
     }
@@ -534,6 +628,17 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
     setFormSubmitting(true);
     try {
       const submissionId = `sub_custom_${Date.now()}`;
+      const finalData = { ...dynamicFieldsData };
+      if (paymentGateway) {
+        finalData['paymentGateway'] = paymentGateway;
+      }
+      if (paymentScreenshot) {
+        finalData['paymentScreenshot'] = paymentScreenshot;
+      }
+      if (paymentTrxId.trim()) {
+        finalData['paymentTrxId'] = paymentTrxId.trim();
+      }
+
       await setDoc(doc(db, 'form_submissions', submissionId), {
         submissionId,
         formId: currentForm.formId,
@@ -541,18 +646,31 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
         userId: currentUser.uid,
         userName: currentUser.name,
         userEmail: currentUser.email,
-        data: dynamicFieldsData,
+        data: finalData,
         submittedAt: new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' }) + ' ' + new Date().toLocaleTimeString('bn-BD'),
         status: 'pending'
       });
 
-      alert('আপনার ফরমটি সফলভাবে সাবমিট করা হয়েছে!');
+      Swal.fire({
+        icon: 'success',
+        title: 'সফল!',
+        text: 'আপনার ফরমটি সফলভাবে সাবমিট করা হয়েছে!',
+        timer: 2000,
+        showConfirmButton: false
+      });
       setDynamicFieldsData({});
+      setPaymentGateway('');
+      setPaymentScreenshot('');
+      setPaymentTrxId('');
       setIsPreviewing(false);
       setActiveFormType('');
     } catch (err) {
       console.error(err);
-      alert('সাবমিট করতে সমস্যা হয়েছে।');
+      Swal.fire({
+        icon: 'error',
+        title: 'ত্রুটি!',
+        text: 'সাবমিট করতে সমস্যা হয়েছে।',
+      });
     } finally {
       setFormSubmitting(false);
     }
@@ -561,8 +679,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
   const isApproved = registration?.approvalStatus === 'approved';
 
   return (
-    <div className="max-w-none w-full px-4 sm:px-6 lg:px-8 py-2 text-gray-800 pb-24">
-      <div className="flex flex-col lg:flex-row gap-8 items-start">
+    <div className="max-w-none w-full px-2 sm:px-4 lg:px-4 py-2 text-gray-800 pb-16">
+      <div className="flex flex-col lg:flex-row gap-4 items-start">
         
         <UserSidebar 
           currentUser={currentUser}
@@ -624,7 +742,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
                 exit={{ opacity: 0, y: -10 }}
                 className="space-y-6"
               >
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-150 p-6 sm:p-8 space-y-6">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-150 p-4 sm:p-5 space-y-4">
                   <div className="flex items-center space-x-2 pb-3 border-b border-gray-100">
                     <AppWindow className="h-5.5 w-5.5 text-primary" />
                     <div>
@@ -1106,7 +1224,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
                                         const file = event.target.files?.[0];
                                         if (file) {
                                           if (file.size > 3 * 1024 * 1024) {
-                                            alert('ফাইলের সাইজ অনেক বড়! সর্বোচ্চ ৩ মেগাবাইট (3MB) পর্যন্ত ফাইল আপলোড করতে পারবেন।');
+                                            Swal.fire({
+                                              icon: 'error',
+                                              title: 'বড় ফাইল সাইজ!',
+                                              text: 'ফাইলের সাইজ অনেক বড়! সর্বোচ্চ ৩ মেগাবাইট (3MB) পর্যন্ত ফাইল আপলোড করতে পারবেন।',
+                                            });
                                             return;
                                           }
                                           const reader = new FileReader();
@@ -1224,6 +1346,173 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
                   })()
                 )}
 
+                    {/* Dynamic Fee Calculation Card */}
+                    {activeCustomRulesForm && ((Number(activeCustomRulesForm.alumniFee) || 0) > 0 || (Number(activeCustomRulesForm.guestFee) || 0) > 0) && (
+                      (() => {
+                        const targetFieldsForFee = customFields.filter(f => f.formId === activeCustomRulesForm.formId);
+                        const guestField = targetFieldsForFee.find(f => {
+                          const lbl = (f.label || '').toLowerCase();
+                          return lbl.includes('guest') || lbl.includes('guestcount') || lbl.includes('guest count') || lbl.includes('guest_count') || lbl.includes('guestcount') || lbl.includes('অতিথি') || lbl.includes('মেহমান') || lbl.includes('অতিরিক্ত সদস্য');
+                        });
+                        
+                        let guestCount = 0;
+                        if (guestField) {
+                          const val = dynamicFieldsData[guestField.fieldId];
+                          if (val) {
+                            const parsed = parseInt(val, 10);
+                            guestCount = isNaN(parsed) ? 0 : parsed;
+                          }
+                        }
+
+                        const alumniFee = Number(activeCustomRulesForm.alumniFee) || 0;
+                        const guestFee = Number(activeCustomRulesForm.guestFee) || 0;
+                        const totalGuestFee = guestCount * guestFee;
+                        const totalAmount = alumniFee + totalGuestFee;
+
+                        return (
+                          <div className="bg-gradient-to-r from-emerald-50 to-teal-50/40 p-4 rounded-xl border border-emerald-150/60 my-2 space-y-2.5 text-left font-sans shadow-3xs w-full col-span-full">
+                            <h4 className="text-xs font-extrabold text-emerald-950 flex items-center space-x-1.5 pb-1 border-b border-emerald-150/40">
+                              <span>💰 ফি হিসাব বিবরণী (Registration Fee Calculation)</span>
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
+                              <div className="bg-white p-2 rounded-lg border border-emerald-150/30">
+                                <span className="text-gray-400 text-[10px] block font-semibold">অ্যালামনাই নিবন্ধন ফি:</span>
+                                <strong className="text-gray-800 text-sm font-mono">{alumniFee}/- BDT</strong>
+                              </div>
+                              <div className="bg-white p-2 rounded-lg border border-emerald-150/30">
+                                <span className="text-gray-400 text-[10px] block font-semibold">অতিরিক্ত অতিথি ফি ({guestCount} জন):</span>
+                                <strong className="text-gray-800 text-sm font-mono">{totalGuestFee > 0 ? `${guestCount} × ${guestFee} = ${totalGuestFee}/- BDT` : '0/- BDT'}</strong>
+                              </div>
+                              <div className="bg-emerald-600 text-white p-2 rounded-lg shadow-3xs">
+                                <span className="text-white/80 text-[10.5px] block font-bold">সর্বমোট প্রদেয় ফি (Total Fee):</span>
+                                <strong className="text-white text-base font-black font-mono">{totalAmount}/- BDT</strong>
+                              </div>
+                            </div>
+                            <p className="text-[10px] text-emerald-700 font-medium">
+                              * অনুগ্রহ করে মোট {totalAmount}/- টাকা আমাদের পেমেন্ট নম্বরে সেন্ড মানি করে পেমেন্ট বিবরণী ফিল্ডে ট্রানজেকশন আইডি যুক্ত করুন।
+                            </p>
+                          </div>
+                        );
+                      })()
+                    )}
+
+                    {/* Selector of payment option of cash numbers */}
+                    {activeCustomRulesForm && ((Number(activeCustomRulesForm.alumniFee) || 0) > 0 || (Number(activeCustomRulesForm.guestFee) || 0) > 0) &&
+                      (activeCustomRulesForm.bkashNumber || activeCustomRulesForm.nagadNumber || activeCustomRulesForm.rocketNumber) && (
+                      <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3.5 text-left font-sans shadow-3xs my-2.5 col-span-full">
+                        <h4 className="text-xs font-extrabold text-slate-800 flex items-center space-x-1.5 border-b pb-1.5 border-slate-200">
+                          <span>📱 টাকা পাঠানোর মোবাইল নম্বর বেছে নিন (Select Payment Gateway)</span>
+                        </h4>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          {activeCustomRulesForm.bkashNumber && (
+                            <button
+                              type="button"
+                              onClick={() => setPaymentGateway('Bkash (বিকাশ)')}
+                              className={`p-3 rounded-xl border flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
+                                paymentGateway === 'Bkash (বিকাশ)'
+                                  ? 'bg-pink-50 border-pink-500 ring-2 ring-pink-500/20'
+                                  : 'bg-white border-gray-200 hover:bg-pink-50/10 hover:border-pink-300'
+                              }`}
+                            >
+                              <span className="text-pink-600 font-extrabold text-xs font-sans">বিকাশ (bKash)</span>
+                              <span className="text-gray-900 font-bold font-mono text-xs mt-1">{activeCustomRulesForm.bkashNumber}</span>
+                              <span className="text-[10px] text-pink-500 font-medium font-sans mt-0.5">(Send Money)</span>
+                            </button>
+                          )}
+                          {activeCustomRulesForm.nagadNumber && (
+                            <button
+                              type="button"
+                              onClick={() => setPaymentGateway('Nagad (নগদ)')}
+                              className={`p-3 rounded-xl border flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
+                                paymentGateway === 'Nagad (নগদ)'
+                                  ? 'bg-orange-50 border-orange-500 ring-2 ring-orange-500/20'
+                                  : 'bg-white border-gray-200 hover:bg-orange-50/10 hover:border-orange-300'
+                              }`}
+                            >
+                              <span className="text-orange-600 font-extrabold text-xs font-sans">নগদ (Nagad)</span>
+                              <span className="text-gray-900 font-bold font-mono text-xs mt-1">{activeCustomRulesForm.nagadNumber}</span>
+                              <span className="text-[10px] text-orange-500 font-medium font-sans mt-0.5">(Send Money)</span>
+                            </button>
+                          )}
+                          {activeCustomRulesForm.rocketNumber && (
+                            <button
+                              type="button"
+                              onClick={() => setPaymentGateway('Rocket (রকেট)')}
+                              className={`p-3 rounded-xl border flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
+                                paymentGateway === 'Rocket (রকেট)'
+                                  ? 'bg-purple-50 border-purple-500 ring-2 ring-purple-500/20'
+                                  : 'bg-white border-gray-200 hover:bg-purple-50/10 hover:border-purple-300'
+                              }`}
+                            >
+                              <span className="text-purple-700 font-extrabold text-xs font-sans">রকেট (Rocket)</span>
+                              <span className="text-gray-900 font-bold font-mono text-xs mt-1">{activeCustomRulesForm.rocketNumber}</span>
+                              <span className="text-[10px] text-purple-600 font-medium font-sans mt-0.5">(Send Money)</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Screenshot Upload OR Transaction ID Block */}
+                        <div className="border-t border-slate-200 pt-3.5 space-y-3.5">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-2 text-left">
+                              <label className="font-extrabold text-slate-800 block text-xs font-sans">
+                                📸 পেমেন্ট সফল হওয়ার স্ক্রিনশট (Upload Screenshot)
+                              </label>
+                              <div className="flex items-center gap-3 bg-white p-2.5 rounded-xl border border-slate-200">
+                                <div className="flex-1 w-full">
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        const r = new FileReader();
+                                        r.onloadend = () => {
+                                          setPaymentScreenshot(r.result as string);
+                                        };
+                                        r.readAsDataURL(file);
+                                      }
+                                    }}
+                                    className="w-full text-xs font-sans text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
+                                  />
+                                </div>
+                                {paymentScreenshot && (
+                                  <div className="relative shrink-0 border rounded-lg overflow-hidden bg-gray-50">
+                                    <img src={paymentScreenshot} alt="Screenshot Preview" className="h-10 w-10 object-cover" />
+                                    <button
+                                      type="button"
+                                      onClick={() => setPaymentScreenshot('')}
+                                      className="absolute top-0.5 right-0.5 bg-red-500 text-white font-bold text-[8px] rounded-full h-3.5 w-3.5 flex items-center justify-center p-0 hover:bg-red-650 cursor-pointer shadow-xs border border-white"
+                                      title="মুছে ফেলুন"
+                                    >
+                                      X
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="space-y-2 text-left">
+                              <label className="font-extrabold text-slate-800 block text-xs font-sans">
+                                🔑 অথবা ট্রানজেকশন আইডি দিন (Or Enter Transaction ID / TrxID)
+                              </label>
+                              <input
+                                type="text"
+                                value={paymentTrxId}
+                                onChange={(e) => setPaymentTrxId(e.target.value)}
+                                placeholder="উদাঃ BK82M9S2P1"
+                                className="w-full border border-slate-200 rounded-xl px-3 py-2.5 focus:ring-1 focus:ring-primary font-mono text-xs bg-white text-gray-800 font-bold"
+                              />
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-gray-400 font-medium font-sans">
+                            * পেমেন্ট ভেরিফিকেশনের জন্য স্ক্রিনশট আপলোড অথবা ট্রানজেকশন আইডি (TrxID) দুটির মধ্যে যেকোনো একটি তথ্য অবশ্যই প্রদান করতে হবে।
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Submit or Navigation area for dynamic form */}
                     <div className="flex justify-end pt-3 border-t border-gray-150 gap-2">
                       {totalStepsForActiveForm > 1 && activeCustomFormStep > 1 && (
@@ -1280,7 +1569,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
                 </div>
 
                 {/* Applied Data (Show user's submitted data in real-time) */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-150 p-6 sm:p-8 space-y-6">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-150 p-4 sm:p-5 space-y-4">
                   <div className="flex items-center space-x-2 pb-3 border-b border-gray-100">
                     <Clock className="h-5 w-5 text-indigo-600" />
                     <div>
@@ -1301,71 +1590,15 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
                     <div className="space-y-4">
                       {/* Classic Application submissions */}
                       {applications.map((app) => (
-                        <div key={app.submissionId} className="border border-gray-150 bg-slate-50/20 rounded-xl p-5 hover:bg-white transition duration-200 shadow-2xs">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
-                            <div className="space-y-1">
-                              <h4 className="text-xs font-black text-gray-900 leading-none">{app.formLabel}</h4>
-                              <span className="text-[10px] text-gray-400 block font-mono">আইডি - #{app.submissionId} | দাখিলকৃত সময়: {app.submittedAt}</span>
-                            </div>
-
-                            {/* Status badge */}
-                            <span className={`text-[9px] px-2.5 py-1 rounded-full font-extrabold uppercase tracking-wide self-start sm:self-center font-mono inline-flex items-center gap-1 ${
-                              app.status === 'approved'
-                                ? 'bg-green-150 text-green-700'
-                                : app.status === 'rejected'
-                                ? 'bg-red-100 text-red-700'
-                                : 'bg-amber-100 text-amber-700'
-                            }`}>
-                              <span className={`h-1.5 w-1.5 rounded-full ${
-                                app.status === 'approved' ? 'bg-green-600' : app.status === 'rejected' ? 'bg-red-600' : 'bg-amber-600'
-                              }`} />
-                              <span>{app.status === 'approved' ? 'Approved (অনুমোদিত)' : 
-                                    app.status === 'rejected' ? 'Rejected' : 'Pending (যাচাইাধীন)'}</span>
-                            </span>
-                          </div>
-
-                          {/* Expansion data list */}
-                          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 text-[11px] text-gray-600 font-sans">
-                            {Object.entries(app.data || {}).map(([key, val]) => {
-                              // Human labels translations
-                              let bnLabel = key;
-                              if (key === 'name') bnLabel = 'নাম';
-                              if (key === 'mobile') bnLabel = 'মোবাইল';
-                              if (key === 'batch') bnLabel = 'ব্যাচ';
-                              if (key === 'bloodGroup') bnLabel = 'রক্তের গ্রুপ';
-                              if (key === 'occupation') bnLabel = 'পেশা';
-                              if (key === 'address') bnLabel = 'যোগাযোগের ঠিকানা';
-                              if (key === 'mentorArea') bnLabel = 'মেন্টরশিপ এরিয়া';
-                              if (key === 'experienceYears') bnLabel = 'অভিজ্ঞ বছর';
-                              if (key === 'bio') bnLabel = 'বায়ো ও দক্ষতা';
-                              if (key === 'title') bnLabel = 'স্মরণিকা শিরোনাম';
-                              if (key === 'topic') bnLabel = 'বিষয়বস্তু';
-                              if (key === 'content') bnLabel = 'মূল লেখা';
-
-                              return (
-                                <div key={key} className={`${key === 'bio' || key === 'content' || key === 'address' ? 'sm:col-span-2 md:col-span-3' : ''} bg-white border rounded-lg p-2.5 shadow-3xs`}>
-                                  <span className="text-gray-400 font-bold block mb-0.5 uppercase tracking-wider text-[9px]">{bnLabel}:</span>
-                                  <span className="text-gray-900 font-medium leading-relaxed font-mono whitespace-pre-line block">{String(val)}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-
-                          {/* Edit button */}
-                          <div className="mt-4 pt-3 border-t border-gray-150 flex justify-end">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingClassicSub(app);
-                                setEditFormData({ ...app.data });
-                              }}
-                              className="text-xs text-primary font-bold hover:text-primary/80 transition duration-150 flex items-center gap-1 cursor-pointer focus:outline-none"
-                            >
-                              <Pencil className="h-3 w-3" />
-                              <span>তথ্য পরিবর্তন বা সংশোধন করুন (Edit Application)</span>
-                            </button>
-                          </div>
-                        </div>
+                        <SubmissionCard 
+                          key={app.submissionId}
+                          submission={app}
+                          type="classic"
+                          onEdit={() => {
+                            setEditingClassicSub(app);
+                            setEditFormData({ ...app.data });
+                          }}
+                        />
                       ))}
 
                       {/* Custom Form submissions */}
@@ -1374,93 +1607,17 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
                         const fields = customFields.filter(f => f.formId === sub.formId);
                         
                         return (
-                          <div key={sub.submissionId} className="border border-amber-100 bg-amber-50/10 rounded-xl p-5 hover:bg-white transition duration-200 shadow-2xs">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
-                              <div className="space-y-1">
-                                <h4 className="text-xs font-black text-gray-900 leading-none flex items-center space-x-2">
-                                  <span className="bg-amber-100 text-amber-800 text-[8px] font-black px-1.5 py-0.5 rounded font-mono uppercase tracking-wider">Dynamic Form</span>
-                                  <span>{targetForm?.title || 'কাস্টম সংস্করণ'}</span>
-                                </h4>
-                                <span className="text-[10px] text-gray-400 block font-mono">আইডি - #{sub.submissionId} | দাখিলকৃত সময়: {new Date(sub.submittedAt).toLocaleString()}</span>
-                              </div>
-
-                              {/* Custom form submits are verified automatically / success */}
-                              <span className="text-[9px] px-2.5 py-1 rounded-full font-extrabold uppercase tracking-wide self-start sm:self-center font-mono inline-flex items-center gap-1 bg-green-150 text-green-700">
-                                <span className="h-1.5 w-1.5 rounded-full bg-green-600" />
-                               <span>Success (জমা হয়েছে)</span>
-                              </span>
-                            </div>
-
-                            {/* Response details */}
-                            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 text-[11px] text-gray-600 font-sans">
-                              {Object.entries(sub.data || {}).map(([fldId, val]) => {
-                                const fld = fields.find(fd => fd.fieldId === fldId);
-                                const label = fld ? fld.label : fldId;
-                                const displayVal = Array.isArray(val) ? val.join(', ') : String(val);
-                                const valueStr = String(val);
-                                const isImage = valueStr.startsWith('data:image/') || fld?.fieldType === 'file' && valueStr.startsWith('data:image/');
-                                const isPdf = valueStr.startsWith('data:application/pdf') || fld?.fieldType === 'file' && valueStr.startsWith('data:application/pdf');
-
-                                return (
-                                  <div key={fldId} className="bg-white border rounded-lg p-2.5 shadow-3xs flex flex-col justify-between">
-                                    <div>
-                                      <span className="text-gray-400 font-bold block mb-1 uppercase tracking-wider text-[9px]">{label}:</span>
-                                      {isImage ? (
-                                        <div className="mt-1 border rounded p-1 bg-gray-50 flex flex-col items-center">
-                                          <img 
-                                            src={valueStr} 
-                                            alt={label} 
-                                            className="max-h-24 max-w-full rounded object-contain" 
-                                            referrerPolicy="no-referrer"
-                                          />
-                                          <a 
-                                            href={valueStr} 
-                                            download={`upload_${sub.submissionId}.png`}
-                                            className="text-[9px] text-primary hover:underline font-bold mt-1.5 inline-flex items-center gap-1 cursor-pointer"
-                                          >
-                                            <Upload className="h-3 w-3" />
-                                            <span>ডাউনলোড (Download)</span>
-                                          </a>
-                                        </div>
-                                      ) : isPdf ? (
-                                        <div className="mt-1">
-                                          <div className="flex items-center space-x-1.5 text-[9px] bg-red-50 text-red-700 px-2.5 py-1 rounded-md border border-red-150 inline-flex">
-                                            <FileText className="h-4 w-4 shrink-0 text-red-500" />
-                                            <span className="font-extrabold">PDF Document</span>
-                                          </div>
-                                          <a 
-                                            href={valueStr} 
-                                            download={`document_${sub.submissionId}.pdf`}
-                                            className="text-[10px] text-primary hover:underline font-bold block mt-1.5 inline-flex items-center gap-1 cursor-pointer"
-                                          >
-                                            <Upload className="h-3 w-3" />
-                                            <span>ডাউনলোড করুন (Download PDF)</span>
-                                          </a>
-                                        </div>
-                                      ) : (
-                                        <span className="text-gray-900 font-medium leading-relaxed font-mono whitespace-pre-line block">{displayVal}</span>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-
-                            {/* Edit button */}
-                            <div className="mt-4 pt-3 border-t border-gray-150 flex justify-end">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingCustomSub(sub);
-                                  setEditFormData({ ...sub.data });
-                                }}
-                                className="text-xs text-primary font-bold hover:text-primary/80 transition duration-150 flex items-center gap-1 cursor-pointer focus:outline-none"
-                              >
-                                <Pencil className="h-3 w-3" />
-                                <span>তথ্য পরিবর্তন বা সংশোধন করুন (Edit Submission)</span>
-                              </button>
-                            </div>
-                          </div>
+                          <SubmissionCard 
+                            key={sub.submissionId}
+                            submission={sub}
+                            type="custom"
+                            targetForm={targetForm}
+                            fields={fields}
+                            onEdit={() => {
+                              setEditingCustomSub(sub);
+                              setEditFormData({ ...sub.data });
+                            }}
+                          />
                         );
                       })}
                     </div>
@@ -1755,7 +1912,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
                                       const file = event.target.files?.[0];
                                       if (file) {
                                         if (file.size > 3 * 1024 * 1024) {
-                                          alert('ফাইলের সাইজ সর্বোচ্চ ৩ মেগাবাইট হতে পারবে।');
+                                          Swal.fire({
+                                            icon: 'error',
+                                            title: 'বড় ফাইল সাইজ!',
+                                            text: 'ফাইলের সাইজ সর্বোচ্চ ৩ মেগাবাইট হতে পারবে।',
+                                          });
                                           return;
                                         }
                                         const reader = new FileReader();

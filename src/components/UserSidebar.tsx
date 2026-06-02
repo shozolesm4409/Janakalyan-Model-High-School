@@ -60,7 +60,7 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
           setActiveSubTab(tab.id);
           if (isMobile) setMobileSidebarOpen(false);
         }}
-        className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-all duration-200 cursor-pointer ${
+        className={`w-full text-left px-3.5 py-1.5 rounded-xl flex items-center justify-between transition-all duration-200 cursor-pointer ${
           isActive 
             ? 'bg-primary text-white font-bold shadow-md shadow-primary/10' 
             : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
@@ -88,8 +88,8 @@ export const UserSidebar: React.FC<UserSidebarProps> = ({
 
   return (
     <>
-      <aside id="user-desktop-sidebar" className="hidden lg:flex w-72 shrink-0 flex-col bg-white rounded-2xl border border-gray-150 p-6 shadow-sm sticky top-24 space-y-7 group">
-        <div className="flex flex-col items-center text-center space-y-3 pb-6 border-b border-gray-100">
+      <aside id="user-desktop-sidebar" className="hidden lg:flex w-64 shrink-0 flex-col bg-white rounded-2xl border border-gray-150 p-4 shadow-sm sticky top-24 space-y-5 group">
+        <div className="flex flex-col items-center text-center space-y-2.5 pb-4 border-b border-gray-100">
           <div className="relative">
             <img
               src={currentUser.profilePhoto || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150'}

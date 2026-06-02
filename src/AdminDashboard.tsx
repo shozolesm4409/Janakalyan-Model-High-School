@@ -17,15 +17,18 @@ import {
   writeBatch 
 } from 'firebase/firestore';
 import { Registration, Payment, Event, Notice, Gallery, User, CustomForm, CustomFormField, CustomFormSubmission, Committee } from './types';
+import Swal from 'sweetalert2';
 import { AdminSidebar } from './components/AdminSidebar';
 import { AdminOverview } from './components/admin/AdminOverview';
 import { VerificationQueue } from './components/admin/VerificationQueue';
+import { UserManager } from './components/admin/UserManager';
 import { CommitteeManager } from './components/admin/CommitteeManager';
 import { EventManager } from './components/admin/EventManager';
 import { NoticePublisher } from './components/admin/NoticePublisher';
 import { HistoricalPhotoUpload } from './components/admin/HistoricalPhotoUpload';
 import { FormBuilder } from './components/admin/FormBuilder';
 import { FormSubmissions } from './components/admin/FormSubmissions';
+import { FormDashboard } from './components/admin/FormDashboard';
 import { 
   Users, 
   CreditCard, 
@@ -114,11 +117,10 @@ export const AdminDashboard: React.FC = () => {
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   
   // Tabs inside Admin Desk
-  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'registrations' | 'payments' | 'events' | 'notices' | 'gallery' | 'form_builder' | 'form_submissions' | 'committee'>('overview');
+  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'registrations' | 'users' | 'events' | 'notices' | 'gallery' | 'form_builder' | 'form_submissions' | 'form_dashboard' | 'committee'>('overview');
 
   // Preview sliders
   const [selectedReg, setSelectedReg] = useState<Registration | null>(null);
-  const [selectedPay, setSelectedPay] = useState<Payment | null>(null);
 
   // Form states for adding items
   const [newEventTitle, setNewEventTitle] = useState('');
@@ -132,6 +134,12 @@ export const AdminDashboard: React.FC = () => {
   const [newGalleryTitle, setNewGalleryTitle] = useState('');
   const [newGalleryCat, setNewGalleryCat] = useState('Golden Jubilee');
   const [newGalleryImg, setNewGalleryImg] = useState('');
+
+  // Modals for admin popup flows
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
+  const [isGalleryModalOpen, setIsGalleryModalOpen] = useState(false);
+  const [isAddFieldOpen, setIsAddFieldOpen] = useState(false);
 
   // Setup live snapshots with exact path checks for the rule validator
   useEffect(() => {
@@ -286,10 +294,62 @@ export const AdminDashboard: React.FC = () => {
 
       await batch.commit();
       setSelectedReg(null);
-      alert("আবেদনটি সফলভাবে এপ্রুভ করা হয়েছে!");
+      Swal.fire({
+        icon: 'success',
+        title: 'এপ্রুভড!',
+        text: 'আবেদনটি সফলভাবে এপ্রুভ করা হয়েছে!',
+        timer: 2000,
+        showConfirmButton: false
+      });
     } catch (err) {
       console.error(err);
-      alert("এপ্রুভ করতে সমস্যা হয়েছে।");
+      Swal.fire({
+        icon: 'error',
+        title: 'ত্রুটি!',
+        text: 'এপ্রুভ করতে সমস্যা হয়েছে।',
+      });
+    }
+  };
+
+  // Action: Approve Custom Submission
+  const handleApproveCustomSubmission = async (subId: string) => {
+    try {
+      await updateDoc(doc(db, 'form_submissions', subId), { status: 'approved' });
+      Swal.fire({
+        icon: 'success',
+        title: 'অনুমোদিত!',
+        text: 'সাবমিশনটি অনুমোদিত হয়েছে!',
+        timer: 1500,
+        showConfirmButton: false
+      });
+    } catch (err) {
+      console.error(err);
+      Swal.fire({
+        icon: 'error',
+        title: 'ত্রুটি!',
+        text: 'অনুমোদনে সমস্যা হয়েছে।',
+      });
+    }
+  };
+
+  // Action: Reject Custom Submission
+  const handleRejectCustomSubmission = async (subId: string) => {
+    try {
+      await updateDoc(doc(db, 'form_submissions', subId), { status: 'rejected' });
+      Swal.fire({
+        icon: 'success',
+        title: 'বাতিল!',
+        text: 'সাবমিশনটি বাতিল করা হয়েছে।',
+        timer: 1500,
+        showConfirmButton: false
+      });
+    } catch (err) {
+      console.error(err);
+      Swal.fire({
+        icon: 'error',
+        title: 'ত্রুটি!',
+        text: 'বাতিল করতে সমস্যা হয়েছে।',
+      });
     }
   };
 
@@ -309,10 +369,18 @@ export const AdminDashboard: React.FC = () => {
 
       await batch.commit();
       setSelectedReg(null);
-      alert("আবেদনটি বাতিল (Rejected) করা হয়েছে।");
+      Swal.fire({
+        icon: 'info',
+        title: 'বাতিলকৃত!',
+        text: 'আবেদনটি বাতিল (Rejected) করা হয়েছে।',
+      });
     } catch (err) {
       console.error(err);
-      alert("বাতিল করতে ব্যর্থ হয়েছে।");
+      Swal.fire({
+        icon: 'error',
+        title: 'ত্রুটি!',
+        text: 'বাতিল করতে ব্যর্থ হয়েছে।',
+      });
     }
   };
 
@@ -333,7 +401,14 @@ export const AdminDashboard: React.FC = () => {
       setNewEventDesc('');
       setNewEventDate('');
       setNewEventLoc('');
-      alert("ইভেন্ট সফলভাবে যুক্ত করা হয়েছে!");
+      setIsEventModalOpen(false);
+      Swal.fire({
+        icon: 'success',
+        title: 'সফল!',
+        text: 'ইভেন্ট সফলভাবে যুক্ত করা হয়েছে!',
+        timer: 1500,
+        showConfirmButton: false
+      });
     } catch (err) {
       console.error(err);
     }
@@ -361,7 +436,14 @@ export const AdminDashboard: React.FC = () => {
       });
       setNewNoticeTitle('');
       setNewNoticeDesc('');
-      alert("নোটিশটি বোর্ডে সফলভাবে পাবলিশ করা হয়েছে!");
+      setIsNoticeModalOpen(false);
+      Swal.fire({
+        icon: 'success',
+        title: 'সফল!',
+        text: 'নোটিশটি বোর্ডে সফলভাবে পাবলিশ করা হয়েছে!',
+        timer: 1500,
+        showConfirmButton: false
+      });
     } catch (err) {
       console.error(err);
     }
@@ -389,7 +471,14 @@ export const AdminDashboard: React.FC = () => {
       });
       setNewGalleryTitle('');
       setNewGalleryImg('');
-      alert("গ্যালারি ছবি সফলভাবে আপলোড হয়েছে!");
+      setIsGalleryModalOpen(false);
+      Swal.fire({
+        icon: 'success',
+        title: 'সফল!',
+        text: 'গ্যালারি ছবি সফলভাবে আপলোড হয়েছে!',
+        timer: 1500,
+        showConfirmButton: false
+      });
     } catch (err) {
       console.error(err);
     }
@@ -409,7 +498,11 @@ export const AdminDashboard: React.FC = () => {
   const handleAddOrEditCommittee = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCommName || !newCommDesignation) {
-      alert("নাম ও পদবী আবশ্যক!");
+      Swal.fire({
+        icon: 'warning',
+        title: 'আবশ্যক!',
+        text: 'নাম ও পদবী আবশ্যক!',
+      });
       return;
     }
 
@@ -423,7 +516,13 @@ export const AdminDashboard: React.FC = () => {
           remark: newCommRemark,
           photo: newCommPhoto || ''
         });
-        alert("কমিটি সদস্যের তথ্য সফলভাবে আপডেট করা হয়েছে!");
+        Swal.fire({
+          icon: 'success',
+          title: 'আপডেট সফল!',
+          text: 'কমিটি সদস্যের তথ্য সফলভাবে আপডেট করা হয়েছে!',
+          timer: 1500,
+          showConfirmButton: false
+        });
         setEditingCommMemberId(null);
       } else {
         // Add Mode
@@ -435,7 +534,13 @@ export const AdminDashboard: React.FC = () => {
           remark: newCommRemark,
           photo: newCommPhoto || ''
         });
-        alert("কমিটি সদস্য সফলভাবে যুক্ত করা হয়েছে!");
+        Swal.fire({
+          icon: 'success',
+          title: 'যুক্ত হয়েছে!',
+          text: 'কমিটি সদস্য সফলভাবে যুক্ত করা হয়েছে!',
+          timer: 1500,
+          showConfirmButton: false
+        });
       }
       // Reset State
       setNewCommName('');
@@ -445,7 +550,11 @@ export const AdminDashboard: React.FC = () => {
       setIsCommModalOpen(false);
     } catch (err) {
       console.error(err);
-      alert("তথ্য সংরক্ষণ করতে সমস্যা হয়েছে।");
+      Swal.fire({
+        icon: 'error',
+        title: 'ত্রুটি!',
+        text: 'তথ্য সংরক্ষণ করতে সমস্যা হয়েছে।',
+      });
     }
   };
 
@@ -472,7 +581,11 @@ export const AdminDashboard: React.FC = () => {
     if (!file) return;
 
     if (file.size > 2 * 1024 * 1024) {
-      alert("ছবির সাইজ ২ মেগাবাইটের কম হতে হবে।");
+      Swal.fire({
+        icon: 'error',
+        title: 'বড় ফাইল!',
+        text: 'ছবির সাইজ ২ মেগাবাইটের কম হতে হবে।',
+      });
       return;
     }
 
@@ -527,19 +640,43 @@ export const AdminDashboard: React.FC = () => {
       setIsCommPhotoUploading(false);
     } catch (err) {
       console.error(err);
-      alert("ছবি ক্রপ করতে সমস্যা হয়েছে।");
+      Swal.fire({
+        icon: 'error',
+        title: 'ক্রপ এরর!',
+        text: 'ছবি ক্রপ করতে সমস্যা হয়েছে।',
+      });
       setIsCommPhotoUploading(false);
     }
   };
 
   const handleDeleteCommittee = async (memberId: string) => {
-    if (!window.confirm("আপনি কি নিশ্চিতভাবে এই কমিটি সদস্যকে ডিলিট করতে চান?")) return;
-    try {
-      await deleteDoc(doc(db, 'committee', memberId));
-      alert("কমিটি সদস্য সফলভাবে ডিলিট করা হয়েছে!");
-    } catch (err) {
-      console.error(err);
-      alert("ডিলিট করতে সমস্যা হয়েছে।");
+    const result = await Swal.fire({
+      title: 'আপনি কি নিশ্চিত?',
+      text: "আপনি কি নিশ্চিতভাবে এই কমিটি সদস্যকে ডিলিট করতে চান?",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'হ্যাঁ, ডিলিট করুন!',
+      cancelButtonText: 'না'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await deleteDoc(doc(db, 'committee', memberId));
+        Swal.fire(
+          'ডিলিট করা হয়েছে!',
+          'কমিটি সদস্য সফলভাবে ডিলিট করা হয়েছে!',
+          'success'
+        );
+      } catch (err) {
+        console.error(err);
+        Swal.fire({
+          icon: 'error',
+          title: 'ত্রুটি!',
+          text: 'ডিলিট করতে সমস্যা হয়েছে।',
+        });
+      }
     }
   };
 
@@ -571,7 +708,13 @@ export const AdminDashboard: React.FC = () => {
     'উপহার সামগ্রী: সুবর্ণ জয়ন্তী টি-শার্ট, ক্যাপ, ব্যাজ ও স্মরণিকা ম্যাগাজিন।'
   ]);
   const [formPaymentNumber, setFormPaymentNumber] = useState('০১৭৪৫-৯৯০৫০৫ (পার্সোনাল)');
+  const [formBkashNumber, setFormBkashNumber] = useState('');
+  const [formNagadNumber, setFormNagadNumber] = useState('');
+  const [formRocketNumber, setFormRocketNumber] = useState('');
+  const [formCashOptions, setFormCashOptions] = useState('');
   const [formPaymentInstructions, setFormPaymentInstructions] = useState('টাকা পাঠানোর পর ট্রানজেকশন আইডি (TrxID) অবশ্যই পেমেন্ট ফর্মে যুক্ত করতে হবে।');
+  const [formAlumniFee, setFormAlumniFee] = useState<number>(1000);
+  const [formGuestFee, setFormGuestFee] = useState<number>(500);
 
   const [isEditingSettings, setIsEditingSettings] = useState(false);
 
@@ -594,6 +737,25 @@ export const AdminDashboard: React.FC = () => {
   const [selectedSubmission, setSelectedSubmission] = useState<CustomFormSubmission | null>(null);
   const [selectedSubmissionsFormId, setSelectedSubmissionsFormId] = useState<string>('');
   const [subSearchQuery, setSubSearchQuery] = useState('');
+  const [exportPreviewFormId, setExportPreviewFormId] = useState<string | null>(null);
+
+  // Auto-select the form that is Active + Register Now active in the submissions tab
+  useEffect(() => {
+    if (activeSubTab === 'form_submissions' && !selectedSubmissionsFormId && customForms.length > 0) {
+      const activeRegForm = customForms.find(f => f.status === 'active' && f.registerNowActive === true);
+      if (activeRegForm) {
+        setSelectedSubmissionsFormId(activeRegForm.formId);
+      } else {
+        // Fallback to first active form, if any
+        const firstActive = customForms.find(f => f.status === 'active');
+        if (firstActive) {
+          setSelectedSubmissionsFormId(firstActive.formId);
+        } else {
+          setSelectedSubmissionsFormId(customForms[0].formId);
+        }
+      }
+    }
+  }, [activeSubTab, customForms, selectedSubmissionsFormId]);
 
   // Populate form settings for editing
   const loadFormSettingsIntoState = (form: CustomForm) => {
@@ -619,7 +781,13 @@ export const AdminDashboard: React.FC = () => {
       'উপহার সামগ্রী: সুবর্ণ জয়ন্তী টি-শার্ট, ক্যাপ, ব্যাজ ও স্মরণিকা ম্যাগাজিন।'
     ]);
     setFormPaymentNumber(form.paymentNumber || '০১৭৪৫-৯৯০৫০৫ (পার্সোনাল)');
+    setFormBkashNumber(form.bkashNumber || '');
+    setFormNagadNumber(form.nagadNumber || '');
+    setFormRocketNumber(form.rocketNumber || '');
+    setFormCashOptions(form.cashOptions?.join(', ') || '');
     setFormPaymentInstructions(form.paymentInstructions || 'টাকা পাঠানোর পর ট্রানজেকশন আইডি (TrxID) অবশ্যই পেমেন্ট ফর্মে যুক্ত করতে হবে।');
+    setFormAlumniFee(form.alumniFee !== undefined ? form.alumniFee : 1000);
+    setFormGuestFee(form.guestFee !== undefined ? form.guestFee : 500);
 
     setIsEditingSettings(true);
   };
@@ -647,7 +815,12 @@ export const AdminDashboard: React.FC = () => {
       'উপহার সামগ্রী: সুবর্ণ জয়ন্তী টি-শার্ট, ক্যাপ, ব্যাজ ও স্মরণিকা ম্যাগাজিন।'
     ]);
     setFormPaymentNumber('০১৭৪৫-৯৯০৫০৫ (পার্সোনাল)');
+    setFormBkashNumber('');
+    setFormNagadNumber('');
+    setFormRocketNumber('');
     setFormPaymentInstructions('টাকা পাঠানোর পর ট্রানজেকশন আইডি (TrxID) অবশ্যই পেমেন্ট ফর্মে যুক্ত করতে হবে।');
+    setFormAlumniFee(1000);
+    setFormGuestFee(500);
 
     setIsEditingSettings(true);
   };
@@ -679,7 +852,13 @@ export const AdminDashboard: React.FC = () => {
         rulesIntro: formRulesIntro.trim(),
         rulesItems: formRulesItems.map(item => item.trim()).filter(Boolean),
         paymentNumber: formPaymentNumber.trim(),
+        bkashNumber: formBkashNumber.trim(),
+        nagadNumber: formNagadNumber.trim(),
+        rocketNumber: formRocketNumber.trim(),
+        cashOptions: formCashOptions.split(',').map(s => s.trim()).filter(Boolean),
         paymentInstructions: formPaymentInstructions.trim(),
+        alumniFee: Number(formAlumniFee) || 0,
+        guestFee: Number(formGuestFee) || 0,
         createdBy: currentUser?.name || 'Admin',
         createdAt: selectedBuilderFormId 
           ? (customForms.find(f => f.formId === selectedBuilderFormId)?.createdAt || new Date().toISOString())
@@ -732,10 +911,20 @@ export const AdminDashboard: React.FC = () => {
       }
       
       setIsEditingSettings(false);
-      alert('ফর্ম কনফিগারেশন সফলভাবে সেভ করা হয়েছে!');
+      Swal.fire({
+        icon: 'success',
+        title: 'সফল!',
+        text: 'ফর্ম কনফিগারেশন সফলভাবে সেভ করা হয়েছে!',
+        timer: 1500,
+        showConfirmButton: false
+      });
     } catch(err) {
       console.error(err);
-      alert('অ্যাপ ডেভেলপমেন্ট সিস্টেমে ফর্ম সংরক্ষণ করতে ব্যর্থ হয়েছে।');
+      Swal.fire({
+        icon: 'error',
+        title: 'ত্রুটি!',
+        text: 'অ্যাপ ডেভেলপমেন্ট সিস্টেমে ফর্ম সংরক্ষণ করতে ব্যর্থ হয়েছে।',
+      });
     }
   };
 
@@ -768,10 +957,20 @@ export const AdminDashboard: React.FC = () => {
       setFieldPlaceholder('');
       setFieldOptionsRaw('');
       setFieldRequired(false);
-      alert('ফিল্ডটি সফলভাবে ফর্মে যুক্ত করা হয়েছে!');
+      Swal.fire({
+        icon: 'success',
+        title: 'সফল!',
+        text: 'ফিল্ডটি সফলভাবে ফর্মে যুক্ত করা হয়েছে!',
+        timer: 1500,
+        showConfirmButton: false
+      });
     } catch(err) {
       console.error(err);
-      alert('নতুন ফিল্ড তৈরি করতে সমস্যা হয়েছে।');
+      Swal.fire({
+        icon: 'error',
+        title: 'ত্রুটি!',
+        text: 'নতুন ফিল্ড তৈরি করতে সমস্যা হয়েছে।',
+      });
     }
   };
 
@@ -832,7 +1031,13 @@ export const AdminDashboard: React.FC = () => {
         label: `${field.label} (Copy)`,
         sortOrder: order
       });
-      alert('ফিল্ডটি ক্লোন করা হয়েছে!');
+      Swal.fire({
+        icon: 'success',
+        title: 'ক্লোন সফল!',
+        text: 'ফিল্ডটি ক্লোন করা হয়েছে!',
+        timer: 1000,
+        showConfirmButton: false
+      });
     } catch(err) {
       console.error(err);
     }
@@ -880,9 +1085,71 @@ export const AdminDashboard: React.FC = () => {
       
       await batch.commit();
       setSelectedBuilderFormId(null);
-      alert('ফর্মটি সফলভাবে মুছে ফেলা হয়েছে!');
+      Swal.fire({
+        icon: 'success',
+        title: 'মুছে ফেলা হয়েছে!',
+        text: 'ফর্মটি সফলভাবে মুছে ফেলা হয়েছে!',
+      });
     } catch(err) {
       console.error(err);
+    }
+  };
+
+  // Toggle form active/inactive status
+  const handleToggleFormStatus = async (formId: string, currentStatus: 'active' | 'inactive') => {
+    try {
+      const nextStatus = currentStatus === 'active' ? 'inactive' : 'active';
+      await updateDoc(doc(db, 'forms', formId), { status: nextStatus });
+      Swal.fire({
+        icon: 'success',
+        title: 'আপডেট সফল!',
+        text: `ফর্ম স্ট্যাটাস সফলভাবে '${nextStatus === 'active' ? 'সক্রিয়' : 'নিষ্ক্রিয়'}' করা হয়েছে!`,
+        timer: 1500,
+        showConfirmButton: false
+      });
+    } catch (err) {
+      console.error(err);
+      Swal.fire({
+        icon: 'error',
+        title: 'ত্রুটি!',
+        text: 'সিস্টেমে ফর্ম স্ট্যাটাস আপডেট করতে ব্যর্থ হয়েছে।',
+      });
+    }
+  };
+
+  // Toggle registerNowActive toggle
+  const handleToggleRegisterNowActive = async (formId: string, currentRegisterNowActive: boolean) => {
+    try {
+      const nextActive = !currentRegisterNowActive;
+      
+      // Update targeted form
+      await updateDoc(doc(db, 'forms', formId), { registerNowActive: nextActive });
+      
+      if (nextActive) {
+        // Automatically deactivate registerNowActive flag for all other forms
+        const otherFormsWithActive = customForms.filter(f => f.formId !== formId && f.registerNowActive);
+        for (const otherF of otherFormsWithActive) {
+          await updateDoc(doc(db, 'forms', otherF.formId), { registerNowActive: false });
+        }
+        Swal.fire({
+          icon: 'success',
+          title: 'সফল!',
+          text: 'এই ফর্মটি এখন প্রধান "Register Now" ফর্ম হিসেবে নির্ধারিত হয়েছে!',
+        });
+      } else {
+        Swal.fire({
+          icon: 'info',
+          title: 'ডিসকানেক্টেড!',
+          text: 'ফর্ম থেকে "Register Now" সংযোগ বিচ্ছিন্ন করা হয়েছে।',
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      Swal.fire({
+        icon: 'error',
+        title: 'ত্রুটি!',
+        text: 'রেজিস্ট্রেশন এখন সক্রিয়করণে সমস্যা হয়েছে।',
+      });
     }
   };
 
@@ -897,23 +1164,52 @@ export const AdminDashboard: React.FC = () => {
       
     const subs = customSubmissions.filter(s => s.formId === formId);
     if (subs.length === 0) {
-      alert('রপ্তানি করার জন্য কোন রেসপন্স বা সাবমিশন পাওয়া যায়নি।');
+      Swal.fire({
+        icon: 'info',
+        title: 'নো ডাটা!',
+        text: 'রপ্তানি করার জন্য কোন রেসপন্স বা সাবমিশন পাওয়া যায়নি।',
+      });
       return;
     }
     
-    const headers = ['Submission ID', 'User Name', 'User Email', 'Submitted At', ...fields.map(f => f.label)];
+    const hasPaymentFields = subs.some(s => s.data && (s.data.paymentGateway || s.data.paymentScreenshot));
+    const headers = [
+      'Submission ID', 
+      'User Name', 
+      'User Email', 
+      'Submitted At', 
+      ...fields.map(f => f.label),
+      ...(hasPaymentFields ? ['Selected Payment Gateway', 'Payment Screenshot (Status)'] : [])
+    ];
+
     const rows = subs.map(sub => {
+      const escapeField = (val: string) => {
+        return (val || '').replace(/"/g, '""').replace(/\r?\n|\r/g, ' ');
+      };
+
       return [
-        `"${sub.submissionId}"`,
-        `"${(sub.userName || 'Guest User').replace(/"/g, '""')}"`,
-        `"${(sub.userEmail || '').replace(/"/g, '""')}"`,
-        `"${new Date(sub.submittedAt).toLocaleString()}"`,
+        `"${escapeField(sub.submissionId)}"`,
+        `"${escapeField(sub.userName || 'Guest User')}"`,
+        `"${escapeField(sub.userEmail || '')}"`,
+        `"${escapeField(new Date(sub.submittedAt).toLocaleString())}"`,
         ...fields.map(f => {
           const val = sub.data[f.fieldId];
           if (val === undefined || val === null) return '""';
-          if (Array.isArray(val)) return `"${val.join('; ').replace(/"/g, '""')}"`;
-          return `"${String(val).replace(/"/g, '""')}"`;
-        })
+          
+          const isAttachment = f.fieldType === 'file' || f.fieldType === 'signature' || (typeof val === 'string' && val.startsWith('data:'));
+          if (isAttachment) {
+            return `"${escapeField(f.fieldType === 'signature' ? '[ডিজিটাল স্বাক্ষর (Digital Signature)]' : '[সংযুক্ত ছবি/ফাইল (Attached Image/File)]')}"`;
+          }
+
+          if (Array.isArray(val)) {
+            return `"${escapeField(val.join('; '))}"`;
+          }
+          return `"${escapeField(String(val))}"`;
+        }),
+        ...(hasPaymentFields ? [
+          sub.data?.paymentGateway ? `"${escapeField(sub.data.paymentGateway)}"` : '""',
+          sub.data?.paymentScreenshot ? '"[সংযুক্ত স্ক্রিনশট (Screenshot Uploaded)]"' : '""'
+        ] : [])
       ];
     });
     
@@ -938,14 +1234,11 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
-  const [isGalleryModalOpen, setIsGalleryModalOpen] = useState(false);
-  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
-
   // Math totals for stats counters
   const totalRegistrations = registrations.length;
   const approvedRegistrations = registrations.filter(r => r.approvalStatus === 'approved').length;
   const pendingRegistrations = registrations.filter(r => r.approvalStatus === 'pending').length;
+  const pendingCustomSubmissions = customSubmissions.filter(s => (s.status || 'pending') === 'pending');
   const totalReceivedBkash = payments
     .filter(p => p.paymentStatus === 'approved')
     .reduce((sum, current) => sum + current.amount, 0);
@@ -999,8 +1292,8 @@ export const AdminDashboard: React.FC = () => {
   ];
 
   return (
-    <div className="max-w-none w-full px-4 sm:px-6 lg:px-8 py-2 text-gray-800 pb-24">
-      <div className="flex flex-col lg:flex-row gap-8 items-start">
+    <div className="max-w-none w-full px-2 sm:px-4 lg:px-4 py-2 text-gray-800 pb-16">
+      <div className="flex flex-col lg:flex-row gap-4 items-start">
         
         <AdminSidebar 
           currentUser={currentUser}
@@ -1075,10 +1368,10 @@ export const AdminDashboard: React.FC = () => {
           </div>
 
           {/* Recharts Analytics Charts Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             
             {/* Batch Distribution chart */}
-            <div className="lg:col-span-2 bg-white rounded-xl border border-gray-150 p-6 space-y-6">
+            <div className="lg:col-span-2 bg-white rounded-xl border border-gray-150 p-4 space-y-4">
               <div className="flex items-center space-x-2 pb-2 border-b">
                 <TrendingUp className="h-5 text-primary" />
                 <h3 className="font-bold text-gray-800 text-sm sm:text-base">নিবন্ধিত প্রাক্তনী দলের দশকভিত্তিক বিন্যাস (Batch decade)</h3>
@@ -1097,10 +1390,10 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             {/* Income breakdown distribution circular pie chart */}
-            <div className="bg-white rounded-xl border border-gray-150 p-6 space-y-6">
+            <div className="bg-white rounded-xl border border-gray-150 p-4 space-y-4">
               <div className="flex items-center space-x-2 pb-2 border-b">
                 <CreditCard className="h-5 text-primary" />
-                <h3 className="font-bold text-gray-800 text-sm sm:text-base">পেমেন্ট ভেরিফিকেশন অনুপাত</h3>
+                <h3 className="font-bold text-gray-800 text-sm sm:text-base">পেমেন্ট কালেকশন</h3>
               </div>
 
               <div className="h-72 w-full relative flex items-center justify-center">
@@ -1134,7 +1427,7 @@ export const AdminDashboard: React.FC = () => {
       {/* 2. Registrations Approval screen */}
       {activeSubTab === 'registrations' && (
         <div id="admin-registrations-tab" className="space-y-6 animate-fade-in">
-          <div className="bg-white rounded-xl border border-gray-150 p-6 shadow-xs">
+          <div className="bg-white rounded-xl border border-gray-150 p-4 shadow-xs">
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h2 className="text-base font-extrabold text-gray-900 mb-1 flex items-center space-x-2">
@@ -1174,25 +1467,25 @@ export const AdminDashboard: React.FC = () => {
                       
                       return (
                         <tr key={reg.registrationId} className="hover:bg-gray-50/40 transition">
-                          <td className="py-3.5 px-4 font-mono font-bold text-gray-700">
+                          <td className="ppy-1.5 px-2 font-mono font-bold text-gray-700">
                             #{reg.registrationId.substring(0, 8).toUpperCase()}
                           </td>
-                          <td className="py-3.5 px-4">
+                          <td className="ppy-1.5 px-2">
                             <div className="font-bold text-gray-800">{regUser?.name || 'পরিচিত ইউজার'}</div>
                             <div className="text-[10px] text-gray-400 font-mono mt-0.5">{regUser?.email || 'N/A'}</div>
                           </td>
-                          <td className="py-3.5 px-4 font-mono text-gray-600">
+                          <td className="ppy-1.5 px-2 font-mono text-gray-600">
                             {reg.academicInfo?.passingYear || "N/A"}
                           </td>
-                          <td className="py-3.5 px-4 font-mono text-gray-600">
+                          <td className="ppy-1.5 px-2 font-mono text-gray-600">
                             {reg.participationInfo?.guestCount ?? 0} জন
                           </td>
-                          <td className="py-3.5 px-4">
+                          <td className="ppy-1.5 px-2">
                             <span className="bg-gray-150 text-gray-800 font-bold px-2 py-0.5 rounded text-[10px] uppercase font-mono border">
                               {reg.participationInfo?.tshirtSize || "M"}
                             </span>
                           </td>
-                          <td className="py-3.5 px-4">
+                          <td className="ppy-1.5 px-2">
                             <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                               reg.approvalStatus === 'approved' 
                                 ? 'bg-green-100 text-green-800' 
@@ -1207,7 +1500,7 @@ export const AdminDashboard: React.FC = () => {
                                 : 'যাচাইধীন'}
                             </span>
                           </td>
-                          <td className="py-3.5 px-4 text-right">
+                          <td className="ppy-1.5 px-2 text-right">
                             <div className="flex items-center justify-end space-x-1.5">
                               <button
                                 onClick={() => setSelectedReg(reg)}
@@ -1243,16 +1536,77 @@ export const AdminDashboard: React.FC = () => {
               </table>
             </div>
 
-            {/* Dynamic Form Submissions Approval (New Feature) */}
-            <div className="mt-8 pt-6 border-t border-gray-150">
-              <h4 className="font-extrabold text-gray-800 text-sm mb-4 flex items-center space-x-2">
-                <ClipboardList className="h-4 w-4 text-primary" />
-                <span>ডায়নামিক আবেদনপত্র এপ্রুভাল (Dynamic Submissions Q)</span>
-              </h4>
-              <p className="text-xs text-gray-500 mb-4">ফর্ম বিল্ডার থেকে তৈরি ফর্মের আবেদনগুলো এখান থেকে ভেরিফাই করুন।</p>
-              
-              <div className="bg-gray-50 p-6 rounded-lg text-center border border-dashed border-gray-300">
-                  <p className="text-xs text-gray-500">বর্তমানে কোনো ডায়নামিক ফরমের আবেদন পেন্ডিং নেই।</p>
+            {/* Dynamic Form Submissions Approval screen */}
+            <div className="bg-white rounded-xl border border-gray-150 p-4 shadow-xs mt-8">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="text-base font-extrabold text-gray-900 mb-1 flex items-center space-x-2">
+                    <span>ডায়নামিক ফর্ম আবেদনপত্র ভেরিফিকেশন</span>
+                    <span className="bg-amber-100 text-amber-800 text-xs px-2.5 py-0.5 rounded-full font-bold">
+                      {pendingCustomSubmissions.length} অপেক্ষমান
+                    </span>
+                  </h2>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded-lg border border-gray-100">
+                <table className="w-full text-left text-xs divide-y">
+                  <thead className="bg-gray-50 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                    <tr>
+                      <th className="py-3 px-4">ফর্ম নাম</th>
+                      <th className="py-3 px-4">আবেদনকারী</th>
+                      <th className="py-3 px-4">স্ট্যাটাস</th>
+                      <th className="py-3 px-4 text-right">ম্যানেজ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {pendingCustomSubmissions.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="text-center py-10 text-gray-400 font-medium">
+                          কোন পেন্ডিং ডায়নামিক ফর্ম আবেদন নেই।
+                        </td>
+                      </tr>
+                    ) : (
+                      pendingCustomSubmissions.map((sub) => (
+                        <tr key={sub.submissionId} className="hover:bg-gray-50/40 transition">
+                          <td className="ppy-1.5 px-2 font-bold text-gray-700">
+                            {customForms.find(f => f.formId === sub.formId)?.title || 'Unknown Form'}
+                          </td>
+                          <td className="ppy-1.5 px-2 font-bold text-gray-800">
+                            {sub.userName}
+                          </td>
+                          <td className="ppy-1.5 px-2">
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                              {sub.status || 'Pending'}
+                            </span>
+                          </td>
+                          <td className="ppy-1.5 px-2 text-right">
+                             <div className="flex items-center justify-end space-x-1.5">
+                                <button
+                                  onClick={() => setSelectedSubmission(sub)}
+                                  className="text-primary font-bold hover:bg-primary/5 px-2.5 py-1 rounded border border-primary/20 transition cursor-pointer"
+                                >
+                                  ডিটেইলস
+                                </button>
+                                <button
+                                  onClick={() => handleApproveCustomSubmission(sub.submissionId)}
+                                  className="text-green-600 font-bold hover:bg-green-50 px-2.5 py-1 rounded border border-green-150 transition cursor-pointer"
+                                >
+                                  এপ্রুভ
+                                </button>
+                                <button
+                                  onClick={() => handleRejectCustomSubmission(sub.submissionId)}
+                                  className="text-red-600 font-bold hover:bg-red-50 px-2.5 py-1 rounded border border-red-150 transition cursor-pointer"
+                                >
+                                  বাতিল
+                                </button>
+                             </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -1413,292 +1767,139 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
+      {/* 2.5 User Management Global List */}
+      {activeSubTab === 'users' && (
+        <UserManager />
+      )}
+
       {/* 3. Event Program scheduler */}
       {activeSubTab === 'events' && (
-        <div id="admin-events-tab" className="grid grid-cols-1 xl:grid-cols-12 gap-8 animate-fade-in text-xs">
-          {/* Left Column: Create/Add Event Card */}
-          <div className="xl:col-span-5 bg-white rounded-xl border border-gray-150 p-6 shadow-xs space-y-4">
-            <div className="border-b pb-2">
-              <h3 className="font-bold text-gray-800 text-sm flex items-center space-x-1.5 font-sans">
-                <Calendar className="h-4 w-4 text-primary" />
-                <span>নতুন কর্মসূচী যোগ করুন (Add Event Program)</span>
+        <div id="admin-events-tab" className="grid grid-cols-1 gap-4 animate-fade-in text-xs">
+          {/* Full Width Column: Scheduled Event List */}
+          <div className="bg-white rounded-xl border border-gray-150 p-4 shadow-xs">
+            <div className="flex justify-between items-center border-b pb-3 mb-4">
+              <h3 className="font-bold text-gray-850 text-sm font-sans flex items-center space-x-1.5">
+                <Calendar className="h-4 w-4 text-primary shrink-0" />
+                <span>নির্ধারিত ইভেন্ট সমূহ (Scheduled Events)</span>
               </h3>
-            </div>
-
-            <form onSubmit={handleAddEvent} className="space-y-4">
-              <div className="space-y-1">
-                <label className="font-semibold text-gray-500 block">ইভেন্টের শিরোনাম (Event Title) *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="উদাঃ প্রাক্তনী মহাসম্মেলন ২০২৬ (Alumni Reunion)"
-                  value={newEventTitle}
-                  onChange={e => setNewEventTitle(e.target.value)}
-                  className="w-full border rounded px-3 py-1.5 focus:ring-1 focus:ring-primary font-sans"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-gray-500 block">তারিখ ও সময় (Event Date & Time) *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="উদাঃ ২৫শে ডিসেম্বর, ২০২৬ সকাল ১০:০০ টা"
-                  value={newEventDate}
-                  onChange={e => setNewEventDate(e.target.value)}
-                  className="w-full border rounded px-3 py-1.5 focus:ring-1 focus:ring-primary font-sans"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-gray-500 block">অনুষ্ঠান স্থল (Location/Venue)</label>
-                <input
-                  type="text"
-                  placeholder="School Campus Grounds"
-                  value={newEventLoc}
-                  onChange={e => setNewEventLoc(e.target.value)}
-                  className="w-full border rounded px-3 py-1.5 focus:ring-1 focus:ring-primary font-sans"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-gray-500 block">বিস্তারিত কর্মসূচী বিবরণ (Description)</label>
-                <textarea
-                  rows={4}
-                  placeholder="অনুষ্ঠানের বিস্তারিত সময়সূচী ও রুটিন গাইডলাইন এখানে লিখুন..."
-                  value={newEventDesc}
-                  onChange={e => setNewEventDesc(e.target.value)}
-                  className="w-full border rounded px-3 py-1.5 focus:ring-1 focus:ring-primary font-sans leading-relaxed"
-                />
-              </div>
-
               <button
-                type="submit"
-                className="w-full bg-primary hover:bg-primary/95 text-white font-bold py-2 rounded-lg cursor-pointer transition flex items-center justify-center space-x-1 font-sans animate-fade-in"
+                onClick={() => setIsEventModalOpen(true)}
+                className="bg-primary hover:bg-primary/95 text-white font-bold py-1.5 px-3 rounded text-[10.5px] cursor-pointer transition flex items-center space-x-1"
               >
-                <Plus className="h-4 w-4" />
-                <span>কর্মসূচী সংরক্ষণ করুন (Add Event)</span>
+                <Plus className="h-3.5 w-3.5" />
+                <span>Add Event</span>
               </button>
-            </form>
-          </div>
-
-          {/* Right Column: Scheduled Event List */}
-          <div className="xl:col-span-7 space-y-4">
-            <div className="bg-white rounded-xl border border-gray-150 p-6 shadow-xs">
-              <h3 className="font-bold text-gray-800 text-sm border-b pb-2 mb-4 font-sans">নির্ধারিত ইভেন্ট সমূহ (Scheduled Events)</h3>
-              
-              {events.length === 0 ? (
-                <div className="text-center py-12 text-gray-400 font-medium font-sans">কোন কর্মসূচী বা ইভেন্ট এখনও শিডিউল করা হয়নি।</div>
-              ) : (
-                <div className="space-y-4 max-h-[580px] overflow-y-auto pr-1">
-                  {events.map((ev) => (
-                    <div key={ev.eventId} className="p-4 bg-gray-50 border rounded-xl hover:shadow-xs transition relative">
-                      <button 
-                        onClick={() => handleDeleteEvent(ev.eventId)}
-                        className="p-1 hover:bg-red-100 text-red-500 rounded absolute top-3 right-3 transition cursor-pointer"
-                        title="Delete Event"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                      
-                      <div className="space-y-1.5 max-w-[90%]">
-                        <h4 className="font-bold text-gray-950 text-sm leading-tight font-sans">{ev.title}</h4>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10.5px] text-gray-500 font-medium">
-                          <span className="flex items-center space-x-0.5">
-                            <Clock className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-                            <span>{ev.eventDate}</span>
-                          </span>
-                          <span className="flex items-center space-x-0.5">
-                            <AlertCircle className="h-3.5 w-3.5 text-teal-600 shrink-0" />
-                            <span>ভেন্যু: {ev.location}</span>
-                          </span>
-                        </div>
-                        {ev.description && (
-                          <p className="text-gray-600 leading-relaxed font-sans mt-2 whitespace-pre-wrap">{ev.description}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
+            
+            {events.length === 0 ? (
+              <div className="text-center py-12 text-gray-400 font-medium font-sans">কোন কর্মসূচী বা ইভেন্ট এখনও শিডিউল করা হয়নি।</div>
+            ) : (
+              <div className="space-y-4 max-h-[580px] overflow-y-auto pr-1">
+                {events.map((ev) => (
+                  <div key={ev.eventId} className="p-4 bg-gray-50 border rounded-xl hover:shadow-xs transition relative">
+                    <button 
+                      onClick={() => handleDeleteEvent(ev.eventId)}
+                      className="p-1 hover:bg-red-100 text-red-500 rounded absolute top-3 right-3 transition cursor-pointer"
+                      title="Delete Event"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                    
+                    <div className="space-y-1.5 max-w-[90%]">
+                      <h4 className="font-bold text-gray-950 text-sm leading-tight font-sans">{ev.title}</h4>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10.5px] text-gray-500 font-medium">
+                        <span className="flex items-center space-x-0.5">
+                          <Clock className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                          <span>{ev.eventDate}</span>
+                        </span>
+                        <span className="flex items-center space-x-0.5">
+                          <AlertCircle className="h-3.5 w-3.5 text-teal-600 shrink-0" />
+                          <span>ভেন্যু: {ev.location}</span>
+                        </span>
+                      </div>
+                      {ev.description && (
+                        <p className="text-gray-600 leading-relaxed font-sans mt-2 whitespace-pre-wrap">{ev.description}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* 4. Notices announcement screen */}
       {activeSubTab === 'notices' && (
-        <div id="admin-notices-tab" className="grid grid-cols-1 xl:grid-cols-12 gap-8 animate-fade-in text-xs">
-          {/* Left Column: Create notice form */}
-          <div className="xl:col-span-5 bg-white rounded-xl border border-gray-150 p-6 shadow-xs space-y-4">
-            <h3 className="font-bold text-gray-800 text-sm flex items-center space-x-1.5 border-b pb-2 font-sans">
-              <Bell className="h-4 w-4 text-primary" />
-              <span>নতুন নোটিশ পাবলিশ করুন (Publish Notice)</span>
-            </h3>
-
-            <form onSubmit={handleAddNotice} className="space-y-4">
-              <div className="space-y-1">
-                <label className="font-semibold text-gray-500 block">নোটিশের শিরোনাম (Notice Title) *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="উদাঃ নিবন্ধন ফি পরিশোধের সময়সীমা বৃদ্ধি প্রসংগে"
-                  value={newNoticeTitle}
-                  onChange={e => setNewNoticeTitle(e.target.value)}
-                  className="w-full border rounded px-3 py-1.5 focus:ring-1 focus:ring-primary font-sans"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-gray-500 block">নোটিশ বা বার্তার বিস্তারিত বিবরণ (Notice Message Content) *</label>
-                <textarea
-                  required
-                  rows={6}
-                  placeholder="নোটিশের বিস্তারিত ঘোষণা ঘোষণা অংশসমূহ স্পষ্টভাবে এখানে উল্লেখ করুন..."
-                  value={newNoticeDesc}
-                  onChange={e => setNewNoticeDesc(e.target.value)}
-                  className="w-full border rounded px-3 py-1.5 focus:ring-1 focus:ring-primary font-sans leading-relaxed"
-                />
-              </div>
-
+        <div id="admin-notices-tab" className="grid grid-cols-1 gap-4 animate-fade-in text-xs">
+          {/* Full Width Column: Published Notices board */}
+          <div className="bg-white rounded-xl border border-gray-150 p-4 shadow-xs">
+            <div className="flex justify-between items-center border-b pb-3 mb-4">
+              <h3 className="font-bold text-gray-850 text-sm font-sans flex items-center space-x-1.5">
+                <Bell className="h-4 w-4 text-primary shrink-0" />
+                <span>প্রকাশিত নোটিশবোর্ড (Published Notices)</span>
+              </h3>
               <button
-                type="submit"
-                className="w-full bg-primary hover:bg-primary/95 text-white font-bold py-2 rounded-lg cursor-pointer transition flex items-center justify-center space-x-1 font-sans"
+                onClick={() => setIsNoticeModalOpen(true)}
+                className="bg-primary hover:bg-primary/95 text-white font-bold py-1.5 px-3 rounded text-[10.5px] cursor-pointer transition flex items-center space-x-1"
               >
-                <Plus className="h-4 w-4" />
-                <span>নোটিশ প্রকাশ করুন (Publish Announcement)</span>
+                <Plus className="h-3.5 w-3.5" />
+                <span>Add Notice</span>
               </button>
-            </form>
-          </div>
-
-          {/* Right Column: Published Notices board */}
-          <div className="xl:col-span-7 space-y-4">
-            <div className="bg-white rounded-xl border border-gray-150 p-6 shadow-xs">
-              <h3 className="font-bold text-gray-800 text-sm border-b pb-2 mb-4 font-sans">প্রকাশিত নোটিশবোর্ড (Published Notices)</h3>
-
-              {notices.length === 0 ? (
-                <div className="text-center py-12 text-gray-400 font-medium font-sans">কোন নোটিশ বা ঘোষণা এখনো প্রকাশিত করা হয়নি।</div>
-              ) : (
-                <div className="space-y-4 max-h-[580px] overflow-y-auto pr-1">
-                  {notices.map((n) => (
-                    <div key={n.noticeId} className="p-4 bg-gray-50 border rounded-xl hover:shadow-xs transition relative">
-                      <button 
-                        onClick={() => handleDeleteNotice(n.noticeId)}
-                        className="p-1 hover:bg-red-100 text-red-500 rounded absolute top-3 right-3 transition cursor-pointer"
-                        title="Delete Notice"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-
-                      <div className="space-y-1.5 max-w-[90%]">
-                        <strong className="text-gray-950 font-bold block text-sm leading-tight font-sans">{n.title}</strong>
-                        <span className="text-[9px] bg-slate-200 text-slate-700 font-mono font-bold px-1.5 py-0.5 rounded tracking-wide uppercase">
-                          তারিখ: {n.publishDate}
-                        </span>
-                        <p className="text-gray-600 font-sans mt-2 whitespace-pre-wrap leading-relaxed border-t pt-2 mt-2">{n.description}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
+
+            {notices.length === 0 ? (
+              <div className="text-center py-12 text-gray-400 font-medium font-sans">কোন নোটিশ বা ঘোষণা এখনো প্রকাশিত করা হয়নি।</div>
+            ) : (
+              <div className="space-y-4 max-h-[580px] overflow-y-auto pr-1">
+                {notices.map((n) => (
+                  <div key={n.noticeId} className="p-4 bg-gray-50 border rounded-xl hover:shadow-xs transition relative">
+                    <button 
+                      onClick={() => handleDeleteNotice(n.noticeId)}
+                      className="p-1 hover:bg-red-100 text-red-500 rounded absolute top-3 right-3 transition cursor-pointer"
+                      title="Delete Notice"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+
+                    <div className="space-y-1.5 max-w-[90%]">
+                      <strong className="text-gray-950 font-bold block text-sm leading-tight font-sans">{n.title}</strong>
+                      <span className="text-[9px] bg-slate-200 text-slate-700 font-mono font-bold px-1.5 py-0.5 rounded tracking-wide uppercase">
+                        তারিখ: {n.publishDate}
+                      </span>
+                      <p className="text-gray-600 font-sans mt-2 whitespace-pre-wrap leading-relaxed border-t pt-2 mt-2">{n.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* 5. Memory Photo gallery subtab */}
       {activeSubTab === 'gallery' && (
-        <div id="admin-gallery-tab" className="grid grid-cols-1 xl:grid-cols-12 gap-8 animate-fade-in text-xs">
-          {/* Left Column Upload tools */}
-          <div className="xl:col-span-5 bg-white rounded-xl border border-gray-150 p-6 shadow-xs space-y-4">
-            <h3 className="font-bold text-gray-800 text-sm border-b pb-2 flex items-center space-x-1.5 font-sans">
-              <Image className="h-4 w-4 text-primary" />
-              <span>গ্যালারিতে নতুন ছবি আপলোড করুন</span>
-            </h3>
-
-            <form onSubmit={handleAddGallery} className="space-y-4">
-              <div className="space-y-1">
-                <label className="font-semibold text-gray-400 block pb-1">ছবির শিরোনাম (Photo Title) *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="উদাঃ প্রথম রিইউনিয়ন উদ্বোধনী স্মৃতি"
-                  value={newGalleryTitle}
-                  onChange={e => setNewGalleryTitle(e.target.value)}
-                  className="w-full border rounded px-3 py-1.5 focus:ring-1 focus:ring-primary font-sans text-xs"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-gray-400 block pb-1">ক্যাটাগরি বা অ্যালবাম (Album Category)</label>
-                <select
-                  value={newGalleryCat}
-                  onChange={e => setNewGalleryCat(e.target.value)}
-                  className="w-full border rounded px-3 py-1.5 bg-white text-xs font-sans"
-                >
-                  <option value="Golden Jubilee">সুবর্ণ જન્મজয়নন্তী (Golden Jubilee)</option>
-                  <option value="Class Reunion">শ্রেণী পুনর্মিলনী (Class Reunion)</option>
-                  <option value="Sports & Culture">খেলাধুলা ও সংস্কৃতি</option>
-                  <option value="Campus Memory">ক্যাম্পাসের স্মৃতিপট</option>
-                  <option value="Others">অন্যান্য অ্যালবাম</option>
-                  {customForms.map(form => (
-                    <option key={form.formId} value={form.title}>{form.title}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Base64 file upload input */}
-              <div className="space-y-1">
-                <label className="font-semibold text-gray-400 block pb-1 font-sans">ছবি সিলেক্ট করুন (Choose Photo) *</label>
-                <input
-                  type="file"
-                  required
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onloadend = () => {
-                        setNewGalleryImg(reader.result as string);
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                  className="w-full border p-1 rounded bg-gray-50 file:mr-2 file:py-1 file:px-2 file:border-0 file:rounded file:bg-primary file:text-white file:font-semibold file:cursor-pointer"
-                />
-                
-                {/* Image preview */}
-                {newGalleryImg && (
-                  <div className="border border-indigo-150 rounded-lg overflow-hidden bg-gray-50 p-1">
-                    <span className="text-[10px] text-indigo-600 block mb-1">Image Preview:</span>
-                    <img 
-                      src={newGalleryImg} 
-                      alt="Upload preview" 
-                      referrerPolicy="no-referrer"
-                      className="max-h-[140px] w-full object-contain mx-auto rounded animate-fade-in"
-                    />
-                  </div>
-                )}
-              </div>
-
+        <div id="admin-gallery-tab" className="grid grid-cols-1 gap-4 animate-fade-in text-xs">
+          {/* Full Width Column Album feed */}
+          <div className="bg-white rounded-xl border border-gray-150 p-4 shadow-xs">
+            <div className="flex justify-between items-center border-b pb-3 mb-4">
+              <h3 className="font-bold text-gray-850 text-sm font-sans flex items-center space-x-1.5">
+                <Image className="h-4 w-4 text-primary shrink-0" />
+                <span>গ্যালারি অ্যালবাম (Photo Gallery Feed)</span>
+              </h3>
               <button
-                type="submit"
-                className="w-full bg-primary hover:bg-primary/95 text-white font-bold py-2 rounded-lg cursor-pointer transition flex items-center justify-center space-x-1 font-sans"
+                onClick={() => setIsGalleryModalOpen(true)}
+                className="bg-primary hover:bg-primary/95 text-white font-bold py-1.5 px-3 rounded text-[10.5px] cursor-pointer transition flex items-center space-x-1"
               >
-                <Plus className="h-4 w-4" />
-                <span>অ্যালবামে যুক্ত করুন (Upload Photo)</span>
+                <Plus className="h-3.5 w-3.5" />
+                <span>Add Image</span>
               </button>
-            </form>
-          </div>
-
-          {/* Right Column Album feed */}
-          <div className="xl:col-span-7 bg-white rounded-xl border border-gray-150 p-6 shadow-xs">
-            <h3 className="font-bold text-gray-800 text-sm border-b pb-2 mb-4 font-sans">গ্যালারি অ্যালবাম (Photo Gallery Feed)</h3>
+            </div>
 
             {gallery.length === 0 ? (
               <div className="text-center py-12 text-gray-400 font-medium font-sans">গ্যালারিতে এখনও কোনো ছবি আপলোড করা হয়নি।</div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[580px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-[580px] overflow-y-auto pr-1">
                 {gallery.map((g) => (
                   <div key={g.galleryId} className="group bg-gray-50 border rounded-xl overflow-hidden shadow-xs hover:shadow-md transition relative font-sans">
                     <button 
@@ -1732,13 +1933,13 @@ export const AdminDashboard: React.FC = () => {
 
       {/* 6. Dynamic Form Builder subtab */}
       {activeSubTab === 'form_builder' && (
-        <div id="admin-form-builder-tab" className="grid grid-cols-1 xl:grid-cols-12 gap-8 animate-fade-in text-xs font-sans">
+        <div id="admin-form-builder-tab" className="grid grid-cols-1 xl:grid-cols-12 gap-4 animate-fade-in text-xs font-sans">
           
           {/* LEFT COLUMN: DYNAMIC DIRECTORIES & FORM CREATING/SETTINGS MODULATOR */}
-          <div className="xl:col-span-5 space-y-6">
+          <div className="xl:col-span-5 space-y-4">
             
             {/* 1. Forms Listing and directory switcher */}
-            <div className="bg-white rounded-xl border border-gray-150 p-6 shadow-xs space-y-4">
+            <div className="bg-white rounded-xl border border-gray-150 p-4 shadow-xs space-y-3">
               <div className="flex justify-between items-center border-b pb-2.5">
                 <h4 className="font-bold text-gray-800 text-xs flex items-center space-x-1">
                   <Sliders className="h-4 w-4 text-primary" />
@@ -1799,7 +2000,7 @@ export const AdminDashboard: React.FC = () => {
 
             {/* 2. Form Settings Modifier panel */}
             {isEditingSettings && (
-              <div className="bg-white rounded-xl border border-gray-150 p-6 shadow-xs space-y-4 animate-slide-up">
+              <div className="bg-white rounded-xl border border-gray-150 p-4 shadow-xs space-y-3 animate-slide-up">
                 <h4 className="font-bold text-gray-800 text-xs pb-2 border-b flex items-center space-x-1.5">
                   <Settings2 className="h-4 w-4 text-primary" />
                   <span>{selectedBuilderFormId ? 'ফর্ম সেটিংস এডিট করুন' : 'নতুন ফর্ম বেসিক সেটিংস'}</span>
@@ -2007,7 +2208,7 @@ export const AdminDashboard: React.FC = () => {
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                           <div className="space-y-1">
-                            <label className="font-semibold text-gray-600 block text-[10.5px]">বিকাশ / রকেট নম্বর (Payment No.)</label>
+                            <label className="font-semibold text-gray-600 block text-[10.5px]">সাধারণ পেমেন্ট নম্বর (বিবিধ/সরাসরি)</label>
                             <input
                               type="text"
                               value={formPaymentNumber}
@@ -2018,7 +2219,7 @@ export const AdminDashboard: React.FC = () => {
                           </div>
 
                           <div className="space-y-1">
-                            <label className="font-semibold text-gray-650 block text-[10.5px]">টাকা পাঠানোর পরবর্তী নির্দেশিকা</label>
+                            <label className="font-semibold text-gray-655 block text-[10.5px]">টাকা পাঠানোর পরবর্তী নির্দেশিকা</label>
                             <input
                               type="text"
                               value={formPaymentInstructions}
@@ -2026,6 +2227,87 @@ export const AdminDashboard: React.FC = () => {
                               className="w-full border rounded px-3 py-1.5 focus:ring-1 focus:ring-primary font-sans text-xs bg-white"
                               placeholder="উদাঃ টাকা পাঠানোর পর ট্রানজেকশন আইডি..."
                             />
+                          </div>
+                        </div>
+
+                        {/* 3 Account Numbers Inputs */}
+                        <div className="bg-indigo-50/25 border border-indigo-100/60 p-3 rounded-xl space-y-2">
+                          <label className="font-bold text-indigo-950 block text-[11px] font-sans">৩টি মোবাইল পেমেন্ট গেটওয়ে নম্বর (ঐচ্ছিক - নম্বর প্রদান করলে গ্রাহক অটো পেমেন্ট ও স্ক্রিনশট দিতে পারবে)</label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="font-semibold text-pink-600 block text-[10px]">বিকাশ নম্বর (Bkash)</label>
+                              <input
+                                type="text"
+                                value={formBkashNumber}
+                                onChange={e => setFormBkashNumber(e.target.value)}
+                                className="w-full border border-pink-200 rounded px-2.5 py-1 focus:ring-1 focus:ring-pink-400 font-sans text-xs bg-white text-pink-700 font-bold font-mono"
+                                placeholder="০১৭XXXXXXXX"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="font-semibold text-orange-600 block text-[10px]">নগদ নম্বর (Nagad)</label>
+                              <input
+                                type="text"
+                                value={formNagadNumber}
+                                onChange={e => setFormNagadNumber(e.target.value)}
+                                className="w-full border border-orange-200 rounded px-2.5 py-1 focus:ring-1 focus:ring-orange-400 font-sans text-xs bg-white text-orange-700 font-bold font-mono"
+                                placeholder="০১৮XXXXXXXX"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                            <div className="space-y-1">
+                              <label className="font-semibold text-purple-650 block text-[10px]">রকেট নম্বর (Rocket)</label>
+                              <input
+                                type="text"
+                                value={formRocketNumber}
+                                onChange={e => setFormRocketNumber(e.target.value)}
+                                className="w-full border border-purple-200 rounded px-2.5 py-1 focus:ring-1 focus:ring-purple-400 font-sans text-xs bg-white text-purple-700 font-bold font-mono"
+                                placeholder="০১৫XXXXXXXX"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="font-semibold text-emerald-600 block text-[10px]">ক্যাশ অপশন (Cash)</label>
+                              <input
+                                type="text"
+                                value={formCashOptions || ''}
+                                onChange={e => setFormCashOptions(e.target.value)}
+                                className="w-full border border-emerald-200 rounded px-2.5 py-1 focus:ring-1 focus:ring-emerald-400 font-sans text-xs bg-white text-emerald-700 font-bold"
+                                placeholder="ক্যাশ অপশন (কমা দিয়ে লিখুন)..."
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Fee Settings Configuration */}
+                        <div className="border-t border-indigo-150 pt-2.5 space-y-2">
+                          <label className="font-extrabold text-indigo-900 block text-xs font-sans">নিবন্ধন ফি নির্ধারণ (Registration Fees)</label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 bg-green-50/20 p-3 rounded-xl border border-green-150/40">
+                            <div className="space-y-1">
+                              <label className="font-semibold text-gray-650 block text-[10.5px]">১. একক অ্যালামনাই নিবন্ধন ফি (টাকা)*</label>
+                              <input
+                                type="number"
+                                required
+                                min={0}
+                                value={formAlumniFee}
+                                onChange={e => setFormAlumniFee(Number(e.target.value))}
+                                className="w-full border rounded px-3 py-1.5 focus:ring-1 focus:ring-primary font-sans text-xs bg-white font-mono"
+                                placeholder="উদাঃ ১০০০"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="font-semibold text-gray-650 block text-[10.5px]">২. প্রতিটি অতিরিক্ত অতিথি ফি (টাকা)*</label>
+                              <input
+                                type="number"
+                                required
+                                min={0}
+                                value={formGuestFee}
+                                onChange={e => setFormGuestFee(Number(e.target.value))}
+                                className="w-full border rounded px-3 py-1.5 focus:ring-1 focus:ring-primary font-sans text-xs bg-white font-mono"
+                                placeholder="উদাঃ ৫০০"
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -2080,7 +2362,7 @@ export const AdminDashboard: React.FC = () => {
                 return (
                   <div className="space-y-6 font-sans">
                     {/* Selected Form Header */}
-                    <div className="bg-white rounded-xl border border-gray-150 p-6 flex justify-between items-center bg-radial-to-r from-blue-50/10 to-indigo-50/10">
+                    <div className="bg-white rounded-xl border border-gray-150 p-4 flex justify-between items-center bg-radial-to-r from-blue-50/10 to-indigo-50/10">
                       <div>
                         <span className="text-[10.5px] bg-primary/10 text-primary font-bold uppercase rounded px-2 py-0.5">ডিজাইন এরিয়া</span>
                         <h3 className="font-extrabold text-gray-900 text-sm mt-1">{selectedForm?.title}</h3>
@@ -2094,125 +2376,137 @@ export const AdminDashboard: React.FC = () => {
                     </div>
 
                     {/* Add Field Section (REQUEST 2 option file included below) */}
-                    <div className="bg-white rounded-xl border border-gray-150 p-6 space-y-4 shadow-xs">
-                      <h4 className="font-bold text-gray-800 text-xs pb-1.5 border-b text-secondary flex items-center space-x-1 font-sans">
-                        <PlusCircle className="h-4 w-4" />
-                        <span>১০০% কাস্টম ইনপুট ফিল্ড জোড়ানো (Add Form Field)</span>
-                      </h4>
+                    {isAddFieldOpen && (
+                      <div className="bg-white rounded-xl border border-gray-150 p-4 space-y-3 shadow-xs animate-slide-up">
+                        <h4 className="font-bold text-gray-800 text-xs pb-1.5 border-b text-secondary flex items-center space-x-1 font-sans">
+                          <PlusCircle className="h-4 w-4" />
+                          <span>১০০% কাস্টম ইনপুট ফিল্ড জোড়ানো (Add Form Field)</span>
+                        </h4>
 
-                      <form onSubmit={handleAddField} className="space-y-4 text-xs">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div className="space-y-1">
-                            <label className="font-semibold text-gray-500 block font-sans">ফিল্ডের নাম / লেবেল (Label) *</label>
-                            <input
-                              type="text"
-                              required
-                              placeholder="우দাঃ বর্তমান পেশা (Current Occupation)"
-                              value={fieldLabel}
-                              onChange={e => setFieldLabel(e.target.value)}
-                              className="w-full border rounded px-3 py-1.5 text-xs font-sans"
-                            />
+                        <form onSubmit={handleAddField} className="space-y-4 text-xs">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <label className="font-semibold text-gray-500 block font-sans">ফিল্ডের নাম / লেবেল (Label) *</label>
+                              <input
+                                type="text"
+                                required
+                                placeholder="উদাঃ বর্তমান পেশা (Current Occupation)"
+                                value={fieldLabel}
+                                onChange={e => setFieldLabel(e.target.value)}
+                                className="w-full border rounded px-3 py-1.5 text-xs font-sans"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="font-semibold text-gray-500 block font-sans">ইনপুট টাইপ (Field Input Type) *</label>
+                              <select
+                                value={fieldType}
+                                onChange={e => setFieldType(e.target.value as any)}
+                                className="w-full border rounded px-3 py-1.5 bg-white text-xs font-sans"
+                              >
+                                <optgroup label="Basic Inputs">
+                                  <option value="text">সাধারণ টেক্সট (Text Input)</option>
+                                  <option value="textarea">দীর্ঘ বর্ণনা (Textarea)</option>
+                                  <option value="number">সংখ্যা (Number)</option>
+                                  <option value="email">ইমেইল (Email)</option>
+                                  <option value="mobile">মোবাইল নম্বর (Mobile Number)</option>
+                                  <option value="password">পাসওয়ার্ড (Password)</option>
+                                </optgroup>
+                                <optgroup label="Selection Controls">
+                                  <option value="dropdown">ড্রপডাউন লিস্ট (Dropdown Select)</option>
+                                  <option value="radio">অপশন বাটন (Radio Buttons)</option>
+                                  <option value="checkbox">চেকবক্স অপশন (Checkbox Items)</option>
+                                </optgroup>
+                                <optgroup label="Temporal Pickers">
+                                  <option value="date">তারিখ (Date Picker)</option>
+                                  <option value="time">সময় (Time Picker)</option>
+                                  <option value="datetime">তারিখ ও সময় (DateTime Picker)</option>
+                                </optgroup>
+                                <optgroup label="Advanced & Uploads">
+                                  <option value="file">ফাইল আপলোড / ছবি (File/Image Upload) 📁</option>
+                                  <option value="address">পূর্ণ ঠিকানা (Full Address Panel)</option>
+                                  <option value="signature">স্বাক্ষর স্পেস (Digital Signature)</option>
+                                  <option value="rating">রেটিং স্টার (Rating Stars)</option>
+                                  <option value="url">ওয়েবসাইট লিংক URL (Website Link)</option>
+                                  <option value="color">কালার পিকার (Color Picker)</option>
+                                </optgroup>
+                              </select>
+                            </div>
                           </div>
 
-                          <div className="space-y-1">
-                            <label className="font-semibold text-gray-500 block font-sans">ইনপুট টাইপ (Field Input Type) *</label>
-                            <select
-                              value={fieldType}
-                              onChange={e => setFieldType(e.target.value as any)}
-                              className="w-full border rounded px-3 py-1.5 bg-white text-xs font-sans"
-                            >
-                              <optgroup label="Basic Inputs">
-                                <option value="text">সাধারণ টেক্সট (Text Input)</option>
-                                <option value="textarea">দীর্ঘ বর্ণনা (Textarea)</option>
-                                <option value="number">সংখ্যা (Number)</option>
-                                <option value="email">ইমেইল (Email)</option>
-                                <option value="mobile">মোবাইল নম্বর (Mobile Number)</option>
-                                <option value="password">পাসওয়ার্ড (Password)</option>
-                              </optgroup>
-                              <optgroup label="Selection Controls">
-                                <option value="dropdown">ড্রপডাউন লিস্ট (Dropdown Select)</option>
-                                <option value="radio">অপশন বাটন (Radio Buttons)</option>
-                                <option value="checkbox">চেকবক্স অপশন (Checkbox Items)</option>
-                              </optgroup>
-                              <optgroup label="Temporal Pickers">
-                                <option value="date">তারিখ (Date Picker)</option>
-                                <option value="time">সময় (Time Picker)</option>
-                                <option value="datetime">তারিখ ও সময় (DateTime Picker)</option>
-                              </optgroup>
-                              <optgroup label="Advanced & Uploads">
-                                <option value="file">ফাইল আপলোড / ছবি (File/Image Upload) 📁</option>
-                                <option value="address">পূর্ণ ঠিকানা (Full Address Panel)</option>
-                                <option value="signature">স্বাক্ষর স্পেস (Digital Signature)</option>
-                                <option value="rating">রেটিং স্টার (Rating Stars)</option>
-                                <option value="url">ওয়েবসাইট লিংক URL (Website Link)</option>
-                                <option value="color">কালার পিকার (Color Picker)</option>
-                              </optgroup>
-                            </select>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <label className="font-semibold text-gray-500 block font-sans">সহায়ক লেখা (Placeholder Message)</label>
+                              <input
+                                type="text"
+                                placeholder="ইনপুট বক্সের ভেতরে যে হালকা লেখা ভেসে থাকবে"
+                                value={fieldPlaceholder}
+                                onChange={e => setFieldPlaceholder(e.target.value)}
+                                className="w-full border rounded px-3 py-1.5 text-xs font-sans"
+                              />
+                            </div>
+                            
+                            <div className="flex items-center space-x-2 pt-6">
+                              <input
+                                type="checkbox"
+                                id="requiredFieldChk"
+                                checked={fieldRequired}
+                                onChange={e => setFieldRequired(e.target.checked)}
+                                className="h-4 w-4 rounded text-primary text-xs cursor-pointer"
+                              />
+                              <label htmlFor="requiredFieldChk" className="font-semibold text-gray-700 select-none cursor-pointer font-sans text-xs">
+                                অবশ্যই পূরণীয়? (Field is Required?)
+                              </label>
+                            </div>
                           </div>
-                        </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div className="space-y-1">
-                            <label className="font-semibold text-gray-500 block font-sans">সহায়ক লেখা (Placeholder Message)</label>
-                            <input
-                              type="text"
-                              placeholder="ইনপুট বক্সের ভেতরে যে হালকা লেখা ভেসে থাকবে"
-                              value={fieldPlaceholder}
-                              onChange={e => setFieldPlaceholder(e.target.value)}
-                              className="w-full border rounded px-3 py-1.5 text-xs font-sans"
-                            />
-                          </div>
-                          
-                          <div className="flex items-center space-x-2 pt-6">
-                            <input
-                              type="checkbox"
-                              id="requiredFieldChk"
-                              checked={fieldRequired}
-                              onChange={e => setFieldRequired(e.target.checked)}
-                              className="h-4 w-4 rounded text-primary text-xs cursor-pointer"
-                            />
-                            <label htmlFor="requiredFieldChk" className="font-semibold text-gray-700 select-none cursor-pointer font-sans text-xs">
-                              অবশ্যই পূরণীয়? (Field is Required?)
-                            </label>
-                          </div>
-                        </div>
+                          {/* Dropdown/Radio/Checkbox Options field */}
+                          {['dropdown', 'radio', 'checkbox'].includes(fieldType) && (
+                            <div className="space-y-1">
+                              <label className="font-semibold text-gray-500 text-teal-600 block font-sans pb-0.5">
+                                চয়েস অপশন তালিকা (Comma-separated options) *
+                              </label>
+                              <input
+                                type="text"
+                                required
+                                placeholder="Option A, Option B, Option C, Option D"
+                                value={fieldOptionsRaw}
+                                onChange={e => setFieldOptionsRaw(e.target.value)}
+                                className="w-full border rounded border-teal-200 focus:border-teal-400 px-3 py-1.5 bg-teal-50/10 font-sans text-xs"
+                              />
+                              <span className="text-[10px] text-teal-600 block leading-tight mt-1 font-sans">
+                                মাঝে কমা ( , ) ব্যবহার করে একাধিক অপশনগুলো পর পর লিখুন। মডিউল এগুলোকে রূপান্তর করবে।
+                              </span>
+                            </div>
+                          )}
 
-                        {/* Dropdown/Radio/Checkbox Options field */}
-                        {['dropdown', 'radio', 'checkbox'].includes(fieldType) && (
-                          <div className="space-y-1">
-                            <label className="font-semibold text-gray-500 text-teal-600 block font-sans pb-0.5">
-                              চয়েস অপশন তালিকা (Comma-separated options) *
-                            </label>
-                            <input
-                              type="text"
-                              required
-                              placeholder="Option A, Option B, Option C, Option D"
-                              value={fieldOptionsRaw}
-                              onChange={e => setFieldOptionsRaw(e.target.value)}
-                              className="w-full border rounded border-teal-200 focus:border-teal-400 px-3 py-1.5 bg-teal-50/10 font-sans text-xs"
-                            />
-                            <span className="text-[10px] text-teal-600 block leading-tight mt-1 font-sans">
-                              মাঝে কমা ( , ) ব্যবহার করে একাধিক অপশনগুলো পর পর লিখুন। মডিউল এগুলোকে রূপান্তর করবে।
-                            </span>
-                          </div>
-                        )}
-
-                        <button
-                          type="submit"
-                          className="w-full bg-secondary hover:bg-secondary/90 text-gray-900 font-bold py-2 rounded-lg flex items-center justify-center space-x-1.5 transition cursor-pointer font-sans text-xs"
-                        >
-                          <Plus className="h-4 w-4" />
-                          <span>ডিজাইন ফর্মে এই ফিল্ড যোগ করুন (Apply & Add)</span>
-                        </button>
-                      </form>
-                    </div>
+                          <button
+                            type="submit"
+                            className="w-full bg-secondary hover:bg-secondary/90 text-gray-900 font-bold py-2 rounded-lg flex items-center justify-center space-x-1.5 transition cursor-pointer font-sans text-xs"
+                          >
+                            <Plus className="h-4 w-4" />
+                            <span>ডিজাইন ফর্মে এই ফিল্ড যোগ করুন (Apply & Add)</span>
+                          </button>
+                        </form>
+                      </div>
+                    )}
 
                     {/* Drag & Drop Sorted Fields List */}
-                    <div className="bg-white rounded-xl border border-gray-150 p-6 space-y-4">
-                      <h4 className="font-bold text-gray-800 text-xs pb-2 border-b">রিয়েল-টাইম ফর্ম ফিল্ড ডিজাইন ও সাজানো</h4>
+                    <div className="bg-white rounded-xl border border-gray-150 p-4 space-y-3">
+                      <div className="flex justify-between items-center border-b pb-2.5">
+                        <h4 className="font-extrabold text-gray-850 text-xs">রিয়েল-টাইম ফর্ম ফিল্ড ডিজাইন ও সাজানো</h4>
+                        <button
+                          type="button"
+                          onClick={() => setIsAddFieldOpen(!isAddFieldOpen)}
+                          className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold py-1.5 px-3 rounded-lg text-[10px] flex items-center space-x-1 cursor-pointer transition"
+                        >
+                          {isAddFieldOpen ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+                          <span>{isAddFieldOpen ? 'প্যানেল বন্ধ করুন' : 'নতুন ফিল্ড যোগ করুন'}</span>
+                        </button>
+                      </div>
                       
                       {sortedFields.length === 0 ? (
-                        <p className="text-xs text-gray-400 py-6 text-center">ফর্মে এখনও কোনো ইনপুট ফিল্ড নেই। নিচের প্যানেল থেকে ফিল্ড যোগ করুন!</p>
+                        <p className="text-xs text-gray-400 py-6 text-center">ফর্মে এখনও কোনো ইনপুট ফিল্ড নেই। নতুন ফিল্ড যোগ করুন বোতামে ক্লিক করুন!</p>
                       ) : (
                         <div className="space-y-2.5">
                           {sortedFields.map((field, idx) => {
@@ -2335,19 +2629,19 @@ export const AdminDashboard: React.FC = () => {
                                   /* Static Row View */
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center space-x-3">
-                                      <span className="font-mono text-gray-400 font-bold bg-gray-200/50 h-5 w-5 rounded flex items-center justify-center">
+                                      <span className="font-mono text-gray-400 font-bold bg-gray-250/50 h-6 w-6 rounded-lg flex items-center justify-center border text-[10px]">
                                         {idx + 1}
                                       </span>
                                       <div>
                                         <div className="flex items-center space-x-2">
-                                          <strong className="text-gray-800 uppercase font-sans text-[11px]">{field.label}</strong>
+                                          <strong className="text-gray-800 font-bold font-sans text-xs">{field.label}</strong>
                                           {field.required && <span className="text-red-500 font-bold">*</span>}
                                         </div>
-                                        <span className="font-mono text-[10px] text-gray-400 capitalize bg-white/85 border px-1.5 py-0.2 rounded mt-1 block w-fit shadow-2xs">
+                                        <span className="font-mono text-[9.5px] text-gray-400 capitalize bg-white border px-1.5 py-0.2 rounded mt-1 block w-fit shadow-3xs">
                                           Type: {field.fieldType}
                                         </span>
                                         {field.options && field.options.length > 0 && (
-                                          <span className="text-[9.5px] text-primary block mt-1 font-sans">Options: {field.options.join(', ')}</span>
+                                          <span className="text-[9.5px] text-indigo-600 block mt-1 font-sans">Options: {field.options.join(', ')}</span>
                                         )}
                                       </div>
                                     </div>
@@ -2357,18 +2651,18 @@ export const AdminDashboard: React.FC = () => {
                                       <button
                                         onClick={() => handleShiftFieldOrder(field, 'up')}
                                         disabled={idx === 0}
-                                        className="p-1 hover:bg-gray-200 text-gray-500 rounded disabled:opacity-40 transition cursor-pointer"
+                                        className="p-1 hover:bg-gray-200 text-gray-400 rounded disabled:opacity-40 transition cursor-pointer"
                                         title="Move Up"
                                       >
-                                        <ArrowUp className="h-3 w-3" />
+                                        <ArrowUp className="h-4 w-4" />
                                       </button>
                                       <button
                                         onClick={() => handleShiftFieldOrder(field, 'down')}
                                         disabled={idx === sortedFields.length - 1}
-                                        className="p-1 hover:bg-gray-200 text-gray-500 rounded disabled:opacity-40 transition cursor-pointer"
+                                        className="p-1 hover:bg-gray-200 text-gray-400 rounded disabled:opacity-40 transition cursor-pointer"
                                         title="Move Down"
                                       >
-                                        <ArrowDown className="h-3 w-3" />
+                                        <ArrowDown className="h-4 w-4" />
                                       </button>
 
                                       {/* Field Operations */}
@@ -2377,21 +2671,21 @@ export const AdminDashboard: React.FC = () => {
                                         className="p-1 hover:bg-gray-200 text-indigo-600 rounded cursor-pointer transition"
                                         title="Edit Field Properties"
                                       >
-                                        <Edit className="h-3.5 w-3.5" />
+                                        <Edit className="h-4 w-4" />
                                       </button>
                                       <button
                                         onClick={() => handleCloneField(field)}
                                         className="p-1 hover:bg-gray-200 text-gray-600 rounded cursor-pointer transition"
                                         title="Clone Field"
                                       >
-                                        <Copy className="h-3.5 w-3.5" />
+                                        <Copy className="h-4 w-4" />
                                       </button>
                                       <button
                                         onClick={() => handleDeleteField(field.fieldId)}
-                                        className="p-1 hover:bg-red-100 text-red-500 rounded cursor-pointer transition"
+                                        className="p-1 hover:bg-red-50 text-red-500 rounded cursor-pointer transition"
                                         title="Delete Field"
                                       >
-                                        <Trash2 className="h-3.5 w-3.5" />
+                                        <Trash2 className="h-4 w-4" />
                                       </button>
                                     </div>
                                   </div>
@@ -2430,7 +2724,7 @@ export const AdminDashboard: React.FC = () => {
               
               {selectedSubmissionsFormId && (
                 <button
-                  onClick={() => handleExportSubmissionsCSV(selectedSubmissionsFormId)}
+                  onClick={() => setExportPreviewFormId(selectedSubmissionsFormId)}
                   className="bg-green-600 hover:bg-green-700 text-white font-bold text-xs py-1.5 px-3.5 rounded-lg flex items-center space-x-1.5 transition cursor-pointer self-stretch md:self-auto justify-center"
                 >
                   <Download className="h-3.5 w-3.5" />
@@ -2449,7 +2743,7 @@ export const AdminDashboard: React.FC = () => {
                 >
                   <option value="">-- ফর্ম নির্বাচন করুন --</option>
                   {customForms.map(f => (
-                    <option key={f.formId} value={f.formId}>{f.title} (/{f.slug})</option>
+                    <option key={f.formId} value={f.formId}>{f.title}</option>
                   ))}
                 </select>
               </div>
@@ -2613,7 +2907,134 @@ export const AdminDashboard: React.FC = () => {
                       X
                     </button>
                   </div>
-                  {/* Other modal content remains identical */}
+
+                  {/* Submission Specific Info Container */}
+                  <div className="py-4 overflow-y-auto max-h-[60vh] space-y-4 text-xs font-sans">
+                    {/* Basic Submitter Details */}
+                    <div className="bg-gray-50/80 p-3 rounded-lg grid grid-cols-1 sm:grid-cols-2 gap-3 border border-gray-100">
+                      <div>
+                        <span className="text-gray-400 font-semibold block text-[10px] uppercase font-mono">আবেদনকারীর নাম</span>
+                        <span className="font-bold text-gray-800">{selectedSubmission.userName || 'Guest User'}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 font-semibold block text-[10px] uppercase font-mono">ইমেইল এড্রেস</span>
+                        <span className="font-bold text-gray-800">{selectedSubmission.userEmail || 'Anonymous'}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 font-semibold block text-[10px] uppercase font-mono">জমাদানের সময়</span>
+                        <span className="font-medium text-gray-750">{new Date(selectedSubmission.submittedAt).toLocaleString('bn-BD') || selectedSubmission.submittedAt}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 font-semibold block text-[10px] uppercase font-mono">ফর্ম স্ল্যাগ / আইডি</span>
+                        <span className="font-mono text-gray-700">/{customForms.find(f => f.formId === selectedSubmission.formId)?.slug || selectedSubmission.formId}</span>
+                      </div>
+                      <div className="bg-emerald-50 border border-emerald-100 rounded px-3 py-1.5 col-span-full">
+                        <span className="text-emerald-700 font-semibold block text-[10px] uppercase font-mono">নিধারিত Amount</span>
+                        <span className="font-black text-emerald-900 text-sm">{selectedSubmission.data?.amount ? `${selectedSubmission.data.amount} ৳` : '0 ৳'}</span>
+                      </div>
+                    </div>
+
+                    {/* Dynamic Fields rendering */}
+                    <div className="space-y-3 pt-1 text-left">
+                      <h4 className="font-bold text-gray-800 text-xs border-b pb-1.5 font-sans">
+                        জমাকৃত বিবরণী তথ্যতালিকা (Submitted Data Response)
+                      </h4>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {customFields
+                          .filter(f => f.formId === selectedSubmission.formId)
+                          .sort((a, b) => a.sortOrder - b.sortOrder)
+                          .map((f) => {
+                            const val = selectedSubmission.data[f.fieldId];
+                            const isNull = val === undefined || val === null || val === '';
+                            
+                            return (
+                              <div key={f.fieldId} className="border border-gray-100 rounded-lg p-2.5 bg-gray-50/30 space-y-1">
+                                <label className="font-bold text-gray-500 text-[10px] block font-sans">{f.label}</label>
+                                <div className="text-gray-800 font-medium text-xs break-words">
+                                  {isNull ? (
+                                    <span className="text-gray-350 italic">ফাঁকা (No Input)</span>
+                                  ) : f.fieldType === 'file' && String(val).startsWith('data:image') ? (
+                                    <div className="relative group max-w-full mt-1">
+                                      <img 
+                                        src={String(val)} 
+                                        alt={f.label} 
+                                        className="rounded border border-gray-200 max-h-36 max-w-full object-contain cursor-zoom-in"
+                                        onClick={() => {
+                                          const w = window.open();
+                                          if (w) w.document.write(`<img src="${val}" style="max-width:100%"/>`);
+                                        }}
+                                      />
+                                      <span className="text-[9px] text-gray-400 block mt-1 font-mono">পূর্ণ সাইজ দেখতে ছবিতে ক্লিক করুন</span>
+                                    </div>
+                                  ) : f.fieldType === 'signature' && String(val).startsWith('data:image') ? (
+                                    <div className="mt-1 inline-block bg-gray-50 border p-1 rounded">
+                                      <img src={String(val)} alt="digital signature" className="h-8 object-contain" />
+                                    </div>
+                                  ) : f.fieldType === 'color' ? (
+                                    <div className="flex items-center space-x-2 mt-1">
+                                      <span className="h-4 w-8 rounded border border-gray-300 shadow-xs inline-block" style={{ backgroundColor: String(val) }} />
+                                      <span className="font-mono text-[11px]">{String(val)}</span>
+                                    </div>
+                                  ) : f.fieldType === 'rating' ? (
+                                    <div className="flex text-amber-400 text-xs mt-0.5">
+                                      {'★'.repeat(Number(val))}
+                                      {'☆'.repeat(5 - Number(val))}
+                                    </div>
+                                  ) : Array.isArray(val) ? (
+                                    <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-[11px] inline-block mt-0.5">{val.join(', ')}</span>
+                                  ) : (
+                                    <p className="whitespace-pre-wrap leading-relaxed">{String(val)}</p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                        {selectedSubmission.data?.paymentGateway && (
+                          <div className="border border-indigo-150 rounded-lg p-3 bg-indigo-50/20 col-span-full space-y-1 text-left">
+                            <label className="font-extrabold text-indigo-900 text-[10px] block font-sans tracking-wide uppercase">পেমেন্ট গেটওয়ে (Selected Gateway)</label>
+                            <span className="bg-indigo-600 text-white font-bold px-3 py-1 rounded text-[11px] inline-block font-sans">
+                              {selectedSubmission.data.paymentGateway}
+                            </span>
+                            {selectedSubmission.data?.amount && (
+                              <div className="mt-1 font-extrabold text-indigo-900 text-xs">
+                                নিধারিত Amount: {selectedSubmission.data.amount} ৳
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {selectedSubmission.data?.paymentTrxId && (
+                          <div className="border border-amber-150 rounded-lg p-3 bg-amber-50/20 col-span-full space-y-1 text-left">
+                            <label className="font-extrabold text-amber-900 text-[10px] block font-sans tracking-wide uppercase">ট্রানজেকশন আইডি (Transaction ID / TrxID)</label>
+                            <span className="bg-amber-600 text-white font-mono font-bold px-3 py-1 rounded text-xs inline-block">
+                              {selectedSubmission.data.paymentTrxId}
+                            </span>
+                          </div>
+                        )}
+
+                        {selectedSubmission.data?.paymentScreenshot && (
+                          <div className="border border-emerald-150 rounded-lg p-3 bg-emerald-50/20 col-span-full space-y-2 text-left">
+                            <label className="font-extrabold text-emerald-900 text-[10px] block font-sans tracking-wide uppercase">পেমেন্ট সফলতার স্ক্রিনশট (Uploaded Screenshot)</label>
+                            <div className="relative group max-w-full">
+                              <img 
+                                src={selectedSubmission.data.paymentScreenshot} 
+                                alt="Payment Screenshot" 
+                                className="rounded border border-gray-200 max-h-56 max-w-full object-contain cursor-zoom-in"
+                                onClick={() => {
+                                  const w = window.open();
+                                  if (w) w.document.write(`<img src="${selectedSubmission.data.paymentScreenshot}" style="max-width:100%"/>`);
+                                }}
+                              />
+                              <span className="text-[10px] text-gray-400 block mt-1 font-mono">পূর্ণ সাইজ দেখতে ছবিতে ক্লিক করুন</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="pt-4 border-t border-gray-150 flex justify-end space-x-3 text-xs">
                     <button
                       onClick={() => window.print()}
@@ -2635,13 +3056,457 @@ export const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-          {/* 8. COMMITTEE DIRECTORY MANAGEMENT PANEL */}
+      {/* CSV EXPORT PREVIEW MODAL */}
+      <AnimatePresence>
+        {exportPreviewFormId && (() => {
+          const targetForm = customForms.find(f => f.formId === exportPreviewFormId);
+          if (!targetForm) return null;
+
+          const fields = [...customFields]
+            .filter(f => f.formId === exportPreviewFormId)
+            .sort((a, b) => a.sortOrder - b.sortOrder);
+          
+          const subs = customSubmissions.filter(s => s.formId === exportPreviewFormId);
+
+          return (
+            <div id="csv-export-preview-modal" className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setExportPreviewFormId(null)}
+                className="fixed inset-0 bg-slate-900/55 backdrop-blur-xs"
+              />
+              
+              <motion.div
+                initial={{ scale: 0.95, y: 15 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95, y: 15 }}
+                className="bg-white rounded-2xl w-full max-w-5xl border p-5 md:p-6 shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]"
+              >
+                {/* Header */}
+                <div className="flex justify-between items-start pb-4 border-b border-gray-150 shrink-0">
+                  <div>
+                    <span className="text-[9.5px] bg-green-50 text-green-700 font-bold uppercase rounded px-2.5 py-1">এক্সেল ও CSV ডাটা এক্সপোর্ট</span>
+                    <h3 className="font-extrabold text-gray-900 text-base mt-1.5 flex items-center space-x-1.5">
+                      <ClipboardList className="h-4 w-4 text-green-600" />
+                      <span>{targetForm.title} - জমাকৃত ডাটা টেবিল</span>
+                    </h3>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      মোট <strong className="text-gray-800">{subs.length}</strong> টি রেসপন্স এবং <strong className="text-gray-800">{fields.length + 3}</strong> টি ডাটা কলাম পাওয়া গেছে।
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setExportPreviewFormId(null)}
+                    className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold text-xs cursor-pointer transition"
+                  >
+                    X
+                  </button>
+                </div>
+
+                {/* Table View Area container */}
+                <div className="py-4 my-2 overflow-auto flex-1 border border-gray-100 rounded-xl bg-gray-50/20 text-xs font-sans">
+                  {subs.length === 0 ? (
+                    <div className="text-center py-10 text-gray-400">
+                      কোন তথ্য বা রেসপন্স জমা পড়েনি।
+                    </div>
+                  ) : (
+                    <table className="w-full text-left border-collapse min-w-[800px]">
+                      <thead>
+                        <tr className="bg-gray-50 border-b border-gray-155 text-gray-700 font-bold">
+                          <th className="p-3">জমাদানের সময়</th>
+                          <th className="p-3">ইউজার নাম</th>
+                          <th className="p-3">ইমেইল</th>
+                          {fields.map(f => (
+                            <th key={f.fieldId} className="p-3 whitespace-nowrap">{f.label}</th>
+                          ))}
+                          <th className="p-3 whitespace-nowrap text-indigo-805">পেমেন্ট গেটওয়ে</th>
+                          <th className="p-3 whitespace-nowrap text-amber-805">ট্রানজেকশন আইডি</th>
+                          <th className="p-3 whitespace-nowrap text-emerald-805">পেমেন্ট স্ক্রিনশট</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {subs.map((sub) => (
+                          <tr key={sub.submissionId} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50/50 transition">
+                            <td className="p-3 font-mono text-[11px] text-gray-500 whitespace-nowrap">
+                              {new Date(sub.submittedAt).toLocaleString('bn-BD')}
+                            </td>
+                            <td className="p-3 font-bold text-gray-800 whitespace-nowrap">{sub.userName || 'Guest User'}</td>
+                            <td className="p-3 text-gray-500 font-mono text-[11px]">{sub.userEmail || 'N/A'}</td>
+                            {fields.map(f => {
+                              const val = sub.data[f.fieldId];
+                              const isNull = val === undefined || val === null || val === '';
+                              return (
+                                <td key={f.fieldId} className="p-3 text-gray-750 max-w-[200px] truncate">
+                                  {isNull ? (
+                                    <span className="text-gray-300 italic">N/A</span>
+                                  ) : f.fieldType === 'file' || f.fieldType === 'signature' ? (
+                                    <span className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded text-[10px] font-mono">Image/File Attached</span>
+                                  ) : Array.isArray(val) ? (
+                                    val.join(', ')
+                                  ) : (
+                                    String(val)
+                                  )}
+                                </td>
+                              );
+                            })}
+                            <td className="p-3 text-xs font-semibold text-indigo-700 whitespace-nowrap">
+                              {sub.data?.paymentGateway || <span className="text-gray-300">-</span>}
+                            </td>
+                            <td className="p-3 text-xs font-mono font-semibold text-amber-700 whitespace-nowrap">
+                              {sub.data?.paymentTrxId || <span className="text-gray-300">-</span>}
+                            </td>
+                            <td className="p-3 text-xs text-emerald-700 whitespace-nowrap">
+                              {sub.data?.paymentScreenshot ? (
+                                <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px] font-bold">✓ Screenshot</span>
+                              ) : (
+                                <span className="text-gray-300">-</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+
+                {/* Footer Actions */}
+                <div className="pt-4 border-t border-gray-150 flex justify-end space-x-3 text-xs shrink-0 bg-white">
+                  <button
+                    onClick={() => setExportPreviewFormId(null)}
+                    className="px-4 py-2 border hover:bg-gray-50 rounded-lg font-bold transition cursor-pointer"
+                  >
+                    বন্ধ করুন (Close)
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleExportSubmissionsCSV(exportPreviewFormId);
+                      setExportPreviewFormId(null);
+                    }}
+                    disabled={subs.length === 0}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white rounded-lg font-bold flex items-center space-x-2 transition cursor-pointer"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>এক্সেল/CSV ডাউনলোড করুন (Download CSV)</span>
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          );
+        })()}
+      </AnimatePresence>
+
+      {/* ========================================================================================= */}
+      {/* FORM VISIBILITY AND SUMMARY PANEL */}
+      {/* ========================================================================================= */}
+      {activeSubTab === 'form_visibility' && (
+        <div id="admin-form-visibility-panel" className="space-y-6 animate-fade-in font-sans text-xs">
+          {/* Header Description */}
+          <div className="bg-white rounded-xl border border-gray-150 p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div className="space-y-1 text-left flex-1">
+              <span className="text-[10px] bg-primary/10 text-primary font-bold uppercase rounded px-2.5 py-1 inline-block">কনফিগারেশন কন্ট্রোল</span>
+              <h3 className="font-extrabold text-gray-900 text-lg">ফর্ম ভিজিবিলিটি এবং সার্বিক সামারি</h3>
+              <p className="text-gray-500 text-xs mt-1">সবগুলো কাস্টম ডায়নামিক ফর্মের ভিজিবিলিটি স্ট্যাটাস, সাবমিশন কাউন্টার এবং "রেজিস্ট্রেশন করুন (Register Now)" ড্যাশবোর্ড উইজেট কন্ট্রোল করতে পারবেন।</p>
+            </div>
+
+            {/* Active Register Form Summary Widget */}
+            {customForms.find(f => f.registerNowActive) && (
+              <div className="bg-blue-600 rounded-xl p-4 text-white shadow-lg shadow-blue-200 flex items-center gap-4 min-w-[280px]">
+                <div className="bg-white/20 p-3 rounded-lg">
+                  <TrendingUp className="h-6 w-6" />
+                </div>
+                <div className="text-left leading-tight">
+                  <span className="text-[9px] font-black uppercase tracking-tighter opacity-80">Active Register Form</span>
+                  <h4 className="font-bold text-sm truncate max-w-[180px]">{customForms.find(f => f.registerNowActive)?.title}</h4>
+                  <div className="flex gap-3 mt-1 text-[10px] font-mono">
+                    <span>Total: <span className="font-black">{customSubmissions.filter(s => s.formId === customForms.find(f => f.registerNowActive)?.formId).length}</span></span>
+                    <span>Approved: <span className="font-black">{customSubmissions.filter(s => s.formId === customForms.find(f => f.registerNowActive)?.formId && s.status === 'approved').length}</span></span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Forms Summary and Toggles List Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {customForms.length === 0 ? (
+              <div className="col-span-full bg-white rounded-xl border border-gray-150 p-12 text-center text-gray-400 space-y-3 shadow-xs">
+                <Sliders className="h-10 w-10 text-gray-300 mx-auto" />
+                <p className="text-sm font-semibold">কোন ডায়নামিক ফর্ম এখনো তৈরি করা হয়নি।</p>
+                <button
+                  onClick={() => setActiveSubTab('form_builder')}
+                  className="bg-primary hover:bg-primary/90 text-white font-bold py-2 px-4 rounded-xl text-xs transition cursor-pointer"
+                >
+                  প্রথম ফর্ম তৈরি করুন (Create First Form)
+                </button>
+              </div>
+            ) : (
+              customForms.map((form) => {
+                const totalSubmissions = customSubmissions.filter(s => s.formId === form.formId).length;
+                const isFormActive = form.status === 'active';
+                const isRegisterActive = !!form.registerNowActive;
+
+                return (
+                  <div 
+                    key={form.formId} 
+                    className="bg-white rounded-xl border border-gray-150 p-5 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col justify-between space-y-5 relative overflow-hidden group"
+                  >
+                    {/* Visual Decor Element */}
+                    <div className="absolute top-0 right-0 -mr-6 -mt-6 h-20 w-20 bg-primary/5 rounded-full transform group-hover:scale-110 transition-transform duration-300" />
+                    
+                    <div className="space-y-3 z-10 text-left">
+                      {/* Form Metadata Header */}
+                      <div className="flex justify-between items-start gap-4">
+                        <div className="space-y-1 flex-1">
+                          <h4 className="font-extrabold text-gray-900 text-sm tracking-tight leading-short mt-0.5">
+                            {form.title}
+                          </h4>
+                          <p className="text-[11px] text-gray-400 line-clamp-2 mt-1 leading-relaxed">
+                            {form.description || 'কোন বিবরণ উল্লেখ করা হয়নি।'}
+                          </p>
+                        </div>
+                        
+                        {/* Dynamic Counter Badging */}
+                        <div className="bg-indigo-50 border border-indigo-100 text-center rounded-xl p-3 shrink-0 shadow-xs">
+                          <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block font-mono">জমাকৃত রেসপন্স</span>
+                          <span className="text-xl font-black text-indigo-700 block font-mono mt-0.5">{totalSubmissions}</span>
+                        </div>
+                      </div>
+
+                      {/* Display Badges */}
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                          isFormActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {isFormActive ? '🟢 সক্রিয় (Active)' : '🔴 নিষ্ক্রিয় (Inactive)'}
+                        </span>
+                        
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                          isRegisterActive ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          {isRegisterActive ? '⭐ Register Now লিংকে যুক্ত' : 'সাধারণ ফর্ম'}
+                        </span>
+
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-blue-50 text-blue-700 border border-blue-150">
+                          🛡️ অনুমতি: {
+                            form.permission === 'public' 
+                              ? 'সকলের জন্য উন্মুক্ত (Public)' 
+                              : form.permission === 'login_required' 
+                                ? 'লগইন আবশ্যক (Login Required)' 
+                                : `ব্যাচ নির্দিষ্ট (${form.restrictedBatch || 'N/A'})`
+                          }
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Interactive Toggles & Controls Panel */}
+                    <div className="border-t border-gray-150 pt-4 space-y-3 text-left">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-gray-50/50 p-2.5 rounded-lg border">
+                        
+                        {/* 1. Form General Active/Inactive Status Toggle */}
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => handleToggleFormStatus(form.formId, form.status)}
+                            className={`p-1 w-10 h-5 rounded-full transition-colors relative cursor-pointer ${
+                              isFormActive ? 'bg-green-500' : 'bg-gray-300'
+                            }`}
+                          >
+                            <span className={`absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full transition-transform ${
+                              isFormActive ? 'transform translate-x-5' : ''
+                            }`} />
+                          </button>
+                          <span className="font-semibold text-gray-700 text-[11px]">পাবলিক অ্যাক্সেস উইজেট</span>
+                        </div>
+
+                        {/* 2. Register Now integration Switch Toggle */}
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => handleToggleRegisterNowActive(form.formId, isRegisterActive)}
+                            className={`p-1 w-10 h-5 rounded-full transition-colors relative cursor-pointer ${
+                              isRegisterActive ? 'bg-amber-500' : 'bg-gray-300'
+                            }`}
+                          >
+                            <span className={`absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full transition-transform ${
+                              isRegisterActive ? 'transform translate-x-5' : ''
+                            }`} />
+                          </button>
+                          <span className="font-semibold text-gray-700 text-[11px]">
+                            রেজিস্ট্রেশন করুন (Register Now) Visibility
+                          </span>
+                        </div>
+
+                      </div>
+
+                      {/* 3. Access Permission Settings Update Inline */}
+                      <div className="bg-blue-50/40 p-3 rounded-xl border border-blue-100 flex flex-col gap-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold text-blue-900 text-[10.5px] uppercase tracking-wider flex items-center space-x-1">
+                            <span>🛡️ অনুমতি ও ব্যাচ সেটিং (Access Control)</span>
+                          </span>
+                          <span className="text-[10px] text-gray-400 font-medium">Auto-saved</span>
+                        </div>
+                        
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                          <div className="flex-1">
+                            <select
+                              value={form.permission || 'public'}
+                              onChange={async (e) => {
+                                const newPerm = e.target.value;
+                                try {
+                                  await updateDoc(doc(db, 'forms', form.formId), { 
+                                    permission: newPerm 
+                                  });
+                                } catch (err) {
+                                  console.error(err);
+                                  Swal.fire({
+                                    icon: 'error',
+                                    title: 'ত্রুটি!',
+                                    text: 'পারমিশন আপডেট করতে ব্যর্থ হয়েছে।',
+                                  });
+                                }
+                              }}
+                              className="w-full bg-white border border-blue-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-800 font-semibold focus:outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer"
+                            >
+                              <option value="public">সকলের জন্য উন্মুক্ত (Public)</option>
+                              <option value="login_required">লগইন আবশ্যক (Login Required)</option>
+                              <option value="batch_restricted">ব্যাচ নির্দিষ্ট (Batch Restricted)</option>
+                            </select>
+                          </div>
+
+                          {(form.permission === 'batch_restricted') && (
+                            <div className="flex items-center gap-1.5 flex-1">
+                              <input
+                                type="text"
+                                placeholder="ব্যাচ দিন (উদাঃ ১৯৯৮)"
+                                defaultValue={form.restrictedBatch || ''}
+                                onBlur={async (e) => {
+                                  const val = e.target.value.trim();
+                                  try {
+                                    await updateDoc(doc(db, 'forms', form.formId), { 
+                                      restrictedBatch: val 
+                                    });
+                                  } catch (err) {
+                                    console.error(err);
+                                  }
+                                }}
+                                onKeyDown={async (e) => {
+                                  if (e.key === 'Enter') {
+                                    const val = (e.target as HTMLInputElement).value.trim();
+                                    try {
+                                      await updateDoc(doc(db, 'forms', form.formId), { 
+                                        restrictedBatch: val 
+                                      });
+                                      Swal.fire({
+                                        icon: 'success',
+                                        title: 'সফল!',
+                                        text: 'ব্যাচ সফলভাবে আপডেট করা হয়েছে!',
+                                        timer: 1000,
+                                        showConfirmButton: false
+                                      });
+                                    } catch (err) {
+                                      console.error(err);
+                                    }
+                                  }
+                                }}
+                                className="bg-white border border-blue-200 rounded-lg px-2.5 py-1.5 text-xs text-gray-800 placeholder-gray-400 font-bold focus:outline-none focus:ring-1 focus:ring-blue-400 w-full font-mono text-center"
+                              />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  // Find internal input element in previous sibling
+                                  const container = e.currentTarget.previousSibling as HTMLInputElement;
+                                  if (container) {
+                                    const val = container.value.trim();
+                                    updateDoc(doc(db, 'forms', form.formId), { 
+                                      restrictedBatch: val 
+                                    }).then(() => {
+                                      Swal.fire({
+                                        icon: 'success',
+                                        title: 'সফল!',
+                                        text: 'ব্যাচ সফলভাবে আপডেট করা হয়েছে!',
+                                        timer: 1000,
+                                        showConfirmButton: false
+                                      });
+                                    }).catch(console.error);
+                                  }
+                                }}
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 text-[11px] rounded-lg cursor-pointer whitespace-nowrap transition-colors"
+                              >
+                                সেট করুন
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        {form.permission === 'batch_restricted' && (
+                          <p className="text-[9.5px] text-blue-600 font-semibold leading-relaxed">
+                            * শুধুমাত্র ব্যাচটি নির্দিষ্ট করতে পাশে ব্যাচ বসিয়ে 'সেট করুন' চাপুন।
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Redirect actions shortcuts */}
+                      <div className="flex flex-wrap justify-between items-center pt-1 gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedBuilderFormId(form.formId);
+                            setActiveSubTab('form_builder');
+                          }}
+                          className="flex items-center space-x-1 text-primary hover:text-primary-dark font-bold font-sans cursor-pointer py-1 px-2 hover:bg-primary/5 rounded whitespace-nowrap"
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                          <span>ডিজাইন এডিট</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setSelectedSubmissionsFormId(form.formId);
+                            setActiveSubTab('form_submissions');
+                          }}
+                          className="flex items-center space-x-1 text-indigo-600 hover:text-indigo-800 font-bold font-sans cursor-pointer py-1 px-2 hover:bg-indigo-50 rounded whitespace-nowrap"
+                        >
+                          <ClipboardList className="h-3.5 w-3.5" />
+                          <span>রেসপন্স ডাটা দেখুন</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setExportPreviewFormId(form.formId);
+                          }}
+                          className="flex items-center space-x-1 text-green-600 hover:text-green-800 font-bold font-sans cursor-pointer py-1 px-2 hover:bg-green-50 rounded whitespace-nowrap"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          <span>এক্সপোর্ট (Export)</span>
+                        </button>
+                      </div>
+
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+          {/* 8. FORM DASHBOARD PANEL */}
+      {/* ========================================================================================= */}
+      {activeSubTab === 'form_dashboard' && (
+        <div id="admin-form-dashboard-panel" className="space-y-6">
+          <FormDashboard 
+            forms={customForms}
+            fields={customFields}
+            submissions={customSubmissions}
+          />
+        </div>
+      )}
+
+      {/* 8. COMMITTEE DIRECTORY MANAGEMENT PANEL */}
       {/* ========================================================================================= */}
       {activeSubTab === 'committee' && (
         <div id="admin-committee-panel" className="space-y-6">
           
           {/* HEADER & SEARCH */}
-          <div className="bg-white rounded-xl border border-gray-150 p-6 shadow-sm">
+          <div className="bg-white rounded-xl border border-gray-150 p-4 shadow-sm">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div className="space-y-1">
                 <span className="text-[10px] bg-primary/10 text-primary font-bold uppercase rounded px-2 py-0.5">Directory Manager</span>
@@ -2681,7 +3546,7 @@ export const AdminDashboard: React.FC = () => {
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-white border-b border-gray-150 text-gray-500 font-sans font-bold">
-                    <th className="p-4 pl-6">সদস্যের তথ্য</th>
+                    <th className="p-1 pl-3">সদস্যের তথ্য</th>
                     <th className="p-4">পদবী (Designation)</th>
                     <th className="p-4">মন্তব্য (Remark)</th>
                     <th className="p-4 text-right pr-6">অ্যাকশন</th>
@@ -2696,7 +3561,7 @@ export const AdminDashboard: React.FC = () => {
                     })
                     .map((item) => (
                       <tr key={item.memberId} className="hover:bg-gray-50/50 transition">
-                        <td className="p-4 pl-6">
+                        <td className="p-1 pl-3">
                           <div className="flex items-center space-x-3">
                             <div className="h-10 w-10 rounded-full bg-gray-100 border overflow-hidden flex-shrink-0">
                               {item.photo ? (
@@ -2745,7 +3610,7 @@ export const AdminDashboard: React.FC = () => {
                     ))}
                   {committee.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="p-12 text-center text-gray-400 font-sans italic">
+                      <td colSpan={4} className="p-12 text-center text-gray-400 font-sans italic">
                         কোন কমিটি সদস্য পাওয়া যায়নি।
                       </td>
                     </tr>
@@ -2976,6 +3841,439 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
           </motion.div>
+        </div>
+      )}
+
+      {/* Admin Popup Modals */}
+      {isEventModalOpen && (
+        <div className="fixed inset-0 bg-gray-905/65 backdrop-blur-md flex items-center justify-center z-55 p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl border border-gray-150 max-w-lg w-full p-6 shadow-2xl relative animate-scale-up space-y-4">
+            <button 
+              type="button"
+              onClick={() => setIsEventModalOpen(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            
+            <div className="border-b pb-2">
+              <h3 className="font-bold text-gray-900 text-sm flex items-center space-x-1.5 font-sans">
+                <Calendar className="h-5 w-5 text-primary shrink-0" />
+                <span>নতুন কর্মসূচী যোগ করুন (Add Event Program)</span>
+              </h3>
+            </div>
+
+            <form onSubmit={handleAddEvent} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="font-semibold text-gray-650 block">ইভেন্টের শিরোনাম (Event Title) *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="উদাঃ প্রাক্তনী মহাসম্মেলন ২০২৬ (Alumni Reunion)"
+                  value={newEventTitle}
+                  onChange={e => setNewEventTitle(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-xs font-sans"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-gray-650 block">তারিখ ও সময় (Event Date & Time) *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="উদাঃ ২৫শে ডিসেম্বর, ২০২৬ সকাল ১০:০০ টা"
+                  value={newEventDate}
+                  onChange={e => setNewEventDate(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-xs font-sans"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-gray-650 block">অনুষ্ঠান স্থল (Location/Venue)</label>
+                <input
+                  type="text"
+                  placeholder="School Campus Grounds"
+                  value={newEventLoc}
+                  onChange={e => setNewEventLoc(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-xs font-sans"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-gray-650 block">বিস্তারিত কর্মসূচী বিবরণ (Description)</label>
+                <textarea
+                  rows={4}
+                  placeholder="অনুষ্ঠানের বিস্তারিত সময়সূচী ও রুটিন গাইডলাইন এখানে লিখুন..."
+                  value={newEventDesc}
+                  onChange={e => setNewEventDesc(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-xs leading-relaxed font-sans"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setIsEventModalOpen(false)}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg cursor-pointer transition text-xs"
+                >
+                  বাতিল (Cancel)
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-primary hover:bg-primary/95 text-white font-bold rounded-lg cursor-pointer transition flex items-center space-x-1 font-sans text-xs"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>কর্মসূচী সংরক্ষণ করুন (Add Event)</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Global Submission Detail Modal */}
+      <AnimatePresence>
+        {selectedSubmission && (
+          <div id="submission-detail-modal" className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedSubmission(null)}
+              className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs"
+            />
+            
+            <motion.div
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="bg-white rounded-2xl w-full max-w-2xl border p-6 md:p-8 shadow-2xl relative overflow-hidden"
+            >
+              {/* Modal Content */}
+              <div className="flex justify-between items-start pb-4 border-b border-gray-150">
+                <div>
+                  <h3 className="font-extrabold text-gray-900 text-sm">
+                    {selectedSubmission.userName || 'Guest User'} এর আবেদনপত্র
+                  </h3>
+                  <p className="text-[10px] text-gray-400 font-mono mt-0.5">ID: {selectedSubmission.submissionId}</p>
+                </div>
+                <button
+                  onClick={() => setSelectedSubmission(null)}
+                  className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded font-bold text-xs"
+                >
+                  X
+                </button>
+              </div>
+
+              {/* Submission Specific Info Container */}
+              <div className="py-4 overflow-y-auto max-h-[60vh] space-y-4 text-xs font-sans">
+                {/* Basic Submitter Details */}
+                <div className="bg-gray-50/80 p-3 rounded-lg grid grid-cols-1 sm:grid-cols-2 gap-3 border border-gray-100">
+                  <div>
+                    <span className="text-gray-400 font-semibold block text-[10px] uppercase font-mono">আবেদনকারীর নাম</span>
+                    <span className="font-bold text-gray-800">{selectedSubmission.userName || 'Guest User'}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 font-semibold block text-[10px] uppercase font-mono">ইমেইল এড্রেস</span>
+                    <span className="font-bold text-gray-800">{selectedSubmission.userEmail || 'Anonymous'}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 font-semibold block text-[10px] uppercase font-mono">জমাদানের সময়</span>
+                    <span className="font-medium text-gray-750">{new Date(selectedSubmission.submittedAt).toLocaleString('bn-BD') || selectedSubmission.submittedAt}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 font-semibold block text-[10px] uppercase font-mono">ফর্ম স্ল্যাগ / আইডি</span>
+                    <span className="font-mono text-gray-700">/{customForms.find(f => f.formId === selectedSubmission.formId)?.slug || selectedSubmission.formId}</span>
+                  </div>
+                  <div className="bg-emerald-50 border border-emerald-100 rounded px-3 py-1.5 col-span-full">
+                    <span className="text-emerald-700 font-semibold block text-[10px] uppercase font-mono">নিধারিত Amount</span>
+                    <span className="font-black text-emerald-900 text-sm">{selectedSubmission.data?.amount ? `${selectedSubmission.data.amount} ৳` : '0 ৳'}</span>
+                  </div>
+                </div>
+
+                {/* Dynamic Fields rendering */}
+                <div className="space-y-3 pt-1 text-left">
+                  <h4 className="font-bold text-gray-800 text-xs border-b pb-1.5 font-sans">
+                    জমাকৃত বিবরণী তথ্যতালিকা (Submitted Data Response)
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {customFields
+                      .filter(f => f.formId === selectedSubmission.formId)
+                      .sort((a, b) => a.sortOrder - b.sortOrder)
+                      .map((f) => {
+                        const val = selectedSubmission.data[f.fieldId];
+                        const isNull = val === undefined || val === null || val === '';
+                        
+                        return (
+                          <div key={f.fieldId} className="border border-gray-100 rounded-lg p-2.5 bg-gray-50/30 space-y-1">
+                            <label className="font-bold text-gray-500 text-[10px] block font-sans">{f.label}</label>
+                            <div className="text-gray-800 font-medium text-xs break-words">
+                              {isNull ? (
+                                <span className="text-gray-350 italic">ফাঁকা (No Input)</span>
+                              ) : f.fieldType === 'file' && String(val).startsWith('data:image') ? (
+                                <div className="relative group max-w-full mt-1">
+                                  <img 
+                                    src={String(val)} 
+                                    alt={f.label} 
+                                    className="rounded border border-gray-200 max-h-36 max-w-full object-contain cursor-zoom-in"
+                                    onClick={() => {
+                                      const w = window.open();
+                                      if (w) w.document.write(`<img src="${val}" style="max-width:100%"/>`);
+                                    }}
+                                  />
+                                  <span className="text-[9px] text-gray-400 block mt-1 font-mono">পূর্ণ সাইজ দেখতে ছবিতে ক্লিক করুন</span>
+                                </div>
+                              ) : f.fieldType === 'signature' && String(val).startsWith('data:image') ? (
+                                <div className="mt-1 inline-block bg-gray-50 border p-1 rounded">
+                                  <img src={String(val)} alt="digital signature" className="h-8 object-contain" />
+                                </div>
+                              ) : f.fieldType === 'color' ? (
+                                <div className="flex items-center space-x-2 mt-1">
+                                  <span className="h-4 w-8 rounded border border-gray-300 shadow-xs inline-block" style={{ backgroundColor: String(val) }} />
+                                  <span className="font-mono text-[11px]">{String(val)}</span>
+                                </div>
+                              ) : f.fieldType === 'rating' ? (
+                                <div className="flex text-amber-400 text-xs mt-0.5">
+                                  {'★'.repeat(Number(val))}
+                                  {'☆'.repeat(5 - Number(val))}
+                                </div>
+                              ) : Array.isArray(val) ? (
+                                <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-[11px] inline-block mt-0.5">{val.join(', ')}</span>
+                              ) : (
+                                <p className="whitespace-pre-wrap leading-relaxed">{String(val)}</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                    {selectedSubmission.data?.paymentGateway && (
+                      <div className="border border-indigo-150 rounded-lg p-3 bg-indigo-50/20 col-span-full space-y-1 text-left">
+                        <label className="font-extrabold text-indigo-900 text-[10px] block font-sans tracking-wide uppercase">পেমেন্ট গেটওয়ে (Selected Gateway)</label>
+                        <span className="bg-indigo-600 text-white font-bold px-3 py-1 rounded text-[11px] inline-block font-sans">
+                          {selectedSubmission.data.paymentGateway}
+                        </span>
+                        {selectedSubmission.data?.amount && (
+                          <div className="mt-1 font-extrabold text-indigo-900 text-xs">
+                            নিধারিত Amount: {selectedSubmission.data.amount} ৳
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {selectedSubmission.data?.paymentTrxId && (
+                      <div className="border border-amber-150 rounded-lg p-3 bg-amber-50/20 col-span-full space-y-1 text-left">
+                        <label className="font-extrabold text-amber-900 text-[10px] block font-sans tracking-wide uppercase">ট্রানজেকশন আইডি (Transaction ID / TrxID)</label>
+                        <span className="bg-amber-600 text-white font-mono font-bold px-3 py-1 rounded text-xs inline-block">
+                          {selectedSubmission.data.paymentTrxId}
+                        </span>
+                      </div>
+                    )}
+
+                    {selectedSubmission.data?.paymentScreenshot && (
+                      <div className="border border-emerald-150 rounded-lg p-3 bg-emerald-50/20 col-span-full space-y-2 text-left">
+                        <label className="font-extrabold text-emerald-900 text-[10px] block font-sans tracking-wide uppercase">পেমেন্ট সফলতার স্ক্রিনশট (Uploaded Screenshot)</label>
+                        <div className="relative group max-w-full">
+                          <img 
+                            src={selectedSubmission.data.paymentScreenshot} 
+                            alt="Payment Screenshot" 
+                            className="rounded border border-gray-200 max-h-56 max-w-full object-contain cursor-zoom-in"
+                            onClick={() => {
+                              const w = window.open();
+                              if (w) w.document.write(`<img src="${selectedSubmission.data.paymentScreenshot}" style="max-width:100%"/>`);
+                            }}
+                          />
+                          <span className="text-[10px] text-gray-400 block mt-1 font-mono">পূর্ণ সাইজ দেখতে ছবিতে ক্লিক করুন</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-gray-150 flex justify-end space-x-3 text-xs">
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2 border hover:bg-gray-50 rounded-lg font-bold"
+                >
+                  প্রিন্ট করুন (Print)
+                </button>
+                <button
+                  onClick={() => setSelectedSubmission(null)}
+                  className="px-4 py-2 bg-primary hover:bg-primary/95 text-white rounded-lg font-bold"
+                >
+                  বন্ধ করুন (Close)
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {isNoticeModalOpen && (
+        <div className="fixed inset-0 bg-gray-905/65 backdrop-blur-md flex items-center justify-center z-55 p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl border border-gray-150 max-w-lg w-full p-6 shadow-2xl relative animate-scale-up space-y-4">
+            <button 
+              type="button"
+              onClick={() => setIsNoticeModalOpen(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            
+            <div className="border-b pb-2">
+              <h3 className="font-bold text-gray-950 text-sm flex items-center space-x-1.5 font-sans">
+                <Bell className="h-5 w-5 text-primary shrink-0" />
+                <span>নতুন নোটিশ পাবলিশ করুন (Publish Notice)</span>
+              </h3>
+            </div>
+
+            <form onSubmit={handleAddNotice} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="font-semibold text-gray-650 block">নোটিশের শিরোনাম (Notice Title) *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="উদাঃ নিবন্ধন ফি পরিশোধের সময়সীমা বৃদ্ধি প্রসংগে"
+                  value={newNoticeTitle}
+                  onChange={e => setNewNoticeTitle(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-xs font-sans"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-gray-650 block">নোটিশ বা বার্তার বিস্তারিত বিবরণ (Notice Message Content) *</label>
+                <textarea
+                  required
+                  rows={6}
+                  placeholder="নোটিশের বিস্তারিত ঘোষণা ঘোষণা অংশসমূহ স্পষ্টভাবে এখানে উল্লেখ করুন..."
+                  value={newNoticeDesc}
+                  onChange={e => setNewNoticeDesc(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-xs leading-relaxed font-sans"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setIsNoticeModalOpen(false)}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg cursor-pointer transition text-xs"
+                >
+                  বাতিল (Cancel)
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-primary hover:bg-primary/95 text-white font-bold rounded-lg cursor-pointer transition flex items-center space-x-1 font-sans text-xs"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>নোটিশ প্রকাশ করুন (Publish Announcement)</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isGalleryModalOpen && (
+        <div className="fixed inset-0 bg-gray-905/65 backdrop-blur-md flex items-center justify-center z-55 p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl border border-gray-150 max-w-lg w-full p-6 shadow-2xl relative animate-scale-up space-y-4">
+            <button 
+              type="button"
+              onClick={() => setIsGalleryModalOpen(false)}
+              className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            
+            <div className="border-b pb-2">
+              <h3 className="font-bold text-gray-900 text-sm flex items-center space-x-1.5 font-sans">
+                <Image className="h-5 w-5 text-primary shrink-0" />
+                <span>গ্যালারিতে নতুন ছবি আপলোড করুন</span>
+              </h3>
+            </div>
+
+            <form onSubmit={handleAddGallery} className="space-y-4 text-xs font-sans">
+              <div className="space-y-1">
+                <label className="font-semibold text-gray-450 block pb-1">ছবির শিরোনাম (Photo Title) *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="উদাঃ প্রথম রিইউনিয়ন উদ্বোধনী স্মৃতি"
+                  value={newGalleryTitle}
+                  onChange={e => setNewGalleryTitle(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-xs font-sans"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-gray-450 block pb-1">ক্যাটাগরি বা অ্যালবাম (Album Category)</label>
+                <select
+                  value={newGalleryCat}
+                  onChange={e => setNewGalleryCat(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 bg-white text-xs font-sans"
+                >
+                  <option value="Golden Jubilee font-sans">সুবর্ণ জন্মজয়ন্তী (Golden Jubilee)</option>
+                  <option value="Class Reunion font-sans">শ্রেণী পুনর্মিলনী (Class Reunion)</option>
+                  <option value="Sports & Culture font-sans font-sans">খেলাধুলা ও সংস্কৃতি</option>
+                  <option value="Campus font-sans Memory">ক্যাম্পাসের স্মৃতিপট</option>
+                  <option value="Others font-sans">অন্যান্য অ্যালবাম</option>
+                  {customForms.map(form => (
+                    <option key={form.formId} value={form.title}>{form.title}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-semibold text-gray-450 block pb-1">ছবি সিলেক্ট করুন (Choose Photo) *</label>
+                <input
+                  type="file"
+                  required
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setNewGalleryImg(reader.result as string);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="w-full border p-2 rounded bg-gray-50 file:mr-2 file:py-1 file:px-2 file:border-0 file:rounded file:bg-primary file:text-white file:font-semibold file:cursor-pointer text-xs"
+                />
+                
+                {newGalleryImg && (
+                  <div className="border border-indigo-150 rounded-lg overflow-hidden bg-gray-50 p-1 mt-2">
+                    <span className="text-[10px] text-indigo-600 block mb-1">Image Preview:</span>
+                    <img 
+                      src={newGalleryImg} 
+                      alt="Upload preview" 
+                      referrerPolicy="no-referrer"
+                      className="max-h-[140px] w-full object-contain mx-auto rounded animate-fade-in"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setIsGalleryModalOpen(false)}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg cursor-pointer transition text-xs"
+                >
+                  বাতিল (Cancel)
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-primary hover:bg-primary/95 text-white font-bold rounded-lg cursor-pointer transition flex items-center space-x-1 font-sans text-xs"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>অ্যালবামে যুক্ত করুন (Upload Photo)</span>
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
