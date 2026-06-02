@@ -175,8 +175,10 @@ function AlumniAppContent() {
   }, [currentUser, customForms, customFields]);
 
   const getFormTotalAmount = (activeForm: any, dynamicFieldsData: Record<string, any>) => {
-    // Find guest count field value
+    if (!activeForm) return 0;
+    // Find guest count field value FOR THIS SPECIFIC FORM
     const guestField = customFields.find(f => {
+      if (f.formId !== activeForm.formId) return false;
       const lbl = (f.label || '').toLowerCase();
       return lbl.includes('guest') || lbl.includes('guestcount') || lbl.includes('guest count') || lbl.includes('guest_count') || lbl.includes('guestcount') || lbl.includes('অতিথি') || lbl.includes('মেহমান') || lbl.includes('অতিরিক্ত সদস্য');
     });
