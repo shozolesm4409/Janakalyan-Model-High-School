@@ -6,22 +6,24 @@
 import React, { useEffect, useState } from 'react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, onSnapshot, query } from 'firebase/firestore';
-import { Event, Notice, Gallery, Committee, Sponsor, Registration } from '../types';
+import { Event, Notice, Gallery, Committee, Sponsor, Registration, CustomForm } from '../types';
 import { Calendar, Bell, Users, Award, BookOpen, Clock, Heart, ArrowRight, ExternalLink } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface LandingPageProps {
   onRegisterClick: () => void;
   setCurrentTab: (tab: string) => void;
+  customForms?: CustomForm[];
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onRegisterClick, setCurrentTab }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ onRegisterClick, setCurrentTab, customForms }) => {
   const [events, setEvents] = useState<Event[]>([]);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [gallery, setGallery] = useState<Gallery[]>([]);
   const [committee, setCommittee] = useState<Committee[]>([]);
   const [sponsors, setSponsors] = useState<Sponsor[]>([]);
   const [registrationCount, setRegistrationCount] = useState(0);
+  const [activeGalleryCat, setActiveGalleryCat] = useState<string>('All');
 
   // Live snapshot list listeners with error handling matching SKILL.md
   useEffect(() => {
@@ -111,7 +113,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onRegisterClick, setCu
     <div className="space-y-16 pb-24 text-gray-800">
 
       {/* 1. Hero Celebration Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary/95 to-slate-900 text-white py-20 px-4 sm:px-6 lg:px-8 border-b-4 border-secondary shadow-lg">
+      <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary/95 to-slate-900 text-white py-14 px-4 sm:px-6 lg:px-8 border-b-4 border-secondary shadow-lg">
         {/* Background decorative ring */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-secondary/5 rounded-full border border-secondary/10 pointer-events-none" />
         
@@ -167,7 +169,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onRegisterClick, setCu
       </section>
 
       {/* 2. Notice Board & Announcements */}
-      <section className="max-w-none w-full px-4 sm:px-10 lg:px-16">
+      <section className="max-w-none w-full px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* Latest Notices Columns */}
@@ -202,53 +204,73 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onRegisterClick, setCu
           </div>
 
           {/* Quick guidelines & Fee Rates Card */}
-          <div className="bg-primary/5 rounded-xl border border-primary/10 p-6 sm:p-8 space-y-6">
-            <div className="flex items-center space-x-2 pb-2 border-b border-primary/10">
-              <BookOpen className="h-5.5 w-5.5 text-primary" />
-              <h2 className="text-lg font-bold text-primary">সরাসরি নিয়মাবলি ও ফি</h2>
-            </div>
-            
-            <div className="space-y-4 text-sm leading-relaxed">
-              <p className="text-gray-700">
-                উৎসবের নিরাপত্তা ও সুষ্ঠু পরিচালনার লক্ষ্যে প্রতিটি অ্যালামনাসকে অবশ্যই নির্দিষ্ট ফরম পূরণপূর্বক নিবন্ধন করতে হবে।
-              </p>
-              
-              <ul className="space-y-2.5 font-sans">
-                <li className="flex items-start space-x-2">
-                  <span className="bg-secondary text-primary font-bold rounded-full h-5 w-5 flex items-center justify-center text-xs mt-0.5 shrink-0">১</span>
-                  <span className="text-gray-800"><strong>একক অ্যালামনাই ফি:</strong> ১০০০/- টাকা।</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <span className="bg-secondary text-primary font-bold rounded-full h-5 w-5 flex items-center justify-center text-xs mt-0.5 shrink-0">২</span>
-                  <span className="text-gray-800"><strong>প্রতিটি অতিরিক্ত অতিথি ফি:</strong> ৫০০/- টাকা।</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <span className="bg-secondary text-primary font-bold rounded-full h-5 w-5 flex items-center justify-center text-xs mt-0.5 shrink-0">৩</span>
-                  <span className="text-gray-800"><strong>উপহার সামগ্রী:</strong> সুবর্ণ জয়ন্তী টি-শার্ট, ক্যাপ, ব্যাজ ও স্মরণিকা ম্যগাজিন।</span>
-                </li>
-              </ul>
+          {(() => {
+            const activeRegForm = customForms?.find(f => f.registerNowActive === true);
+            return (
+              <div className="bg-primary/5 rounded-xl border border-primary/10 p-6 sm:p-8 space-y-6">
+                <div className="flex items-center space-x-2 pb-2 border-b border-primary/10">
+                  <BookOpen className="h-5.5 w-5.5 text-primary" />
+                  <h2 className="text-lg font-bold text-primary">সরাসরি নিয়মাবলি ও ফি</h2>
+                </div>
+                
+                <div className="space-y-4 text-sm leading-relaxed">
+                  <p className="text-gray-700">
+                    {activeRegForm?.rulesIntro || "উৎসবের নিরাপত্তা ও সুষ্ঠু পরিচালনার লক্ষ্যে প্রতিটি অ্যালামনাসকে অবশ্যই নির্দিষ্ট ফরম পূরণপূর্বক নিবন্ধন করতে হবে।"}
+                  </p>
+                  
+                  <ul className="space-y-2.5 font-sans">
+                    {activeRegForm?.rulesItems && activeRegForm.rulesItems.length > 0 ? (
+                      activeRegForm.rulesItems.map((rule, idx) => (
+                        <li key={idx} className="flex items-start space-x-2">
+                          <span className="bg-secondary text-primary font-bold rounded-full h-5 w-5 flex items-center justify-center text-xs mt-0.5 shrink-0">{idx + 1}</span>
+                          <span className="text-gray-800">{rule}</span>
+                        </li>
+                      ))
+                    ) : (
+                      <>
+                        <li className="flex items-start space-x-2">
+                          <span className="bg-secondary text-primary font-bold rounded-full h-5 w-5 flex items-center justify-center text-xs mt-0.5 shrink-0">১</span>
+                          <span className="text-gray-800"><strong>একক অ্যালামনাই ফি:</strong> ১০০০/- টাকা।</span>
+                        </li>
+                        <li className="flex items-start space-x-2">
+                          <span className="bg-secondary text-primary font-bold rounded-full h-5 w-5 flex items-center justify-center text-xs mt-0.5 shrink-0">২</span>
+                          <span className="text-gray-800"><strong>প্রতিটি অতিরিক্ত অতিথি ফি:</strong> ৫০০/- টাকা।</span>
+                        </li>
+                        <li className="flex items-start space-x-2">
+                          <span className="bg-secondary text-primary font-bold rounded-full h-5 w-5 flex items-center justify-center text-xs mt-0.5 shrink-0">৩</span>
+                          <span className="text-gray-800"><strong>উপহার সামগ্রী:</strong> সুবর্ণ জয়ন্তী টি-শার্ট, ক্যাপ, ব্যাজ ও স্মরণিকা ম্যগাজিন।</span>
+                        </li>
+                      </>
+                    )}
+                  </ul>
 
-              <div className="bg-white p-4 rounded-lg border border-primary/10 shadow-sm space-y-2 mt-4">
-                <div className="text-xs font-mono tracking-wider font-semibold text-gray-400 uppercase">বিকাশ / রকেট পেমেন্ট নম্বর:</div>
-                <div className="text-base font-bold text-primary">০১৭৪৫-৯৯০৫০৫ (পার্সোনাল)</div>
-                <p className="text-[11px] text-gray-500">টাকা পাঠানোর পর ট্রানজেকশন আইডি (TrxID) অবশ্যই পেমেন্ট ফর্মে যুক্ত করতে হবে।</p>
+                  <div className="bg-white p-4 rounded-lg border border-primary/10 shadow-sm space-y-2 mt-4">
+                    <div className="text-xs font-mono tracking-wider font-semibold text-gray-400 uppercase">বিকাশ / রকেট পেমেন্ট নম্বর:</div>
+                    <div className="text-base font-bold text-primary">
+                      {activeRegForm?.paymentNumber || "০১৭৪৫-৯৯০৫০৫ (পার্সোনাল)"}
+                    </div>
+                    <p className="text-[11px] text-gray-500">
+                      {activeRegForm?.paymentInstructions || "টাকা পাঠানোর পর ট্রানজেকশন আইডি (TrxID) অবশ্যই পেমেন্ট ফর্মে যুক্ত করতে হবে।"}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={onRegisterClick}
+                    className="w-full bg-primary hover:bg-primary/95 text-white font-semibold py-3 rounded-lg text-center shadow-lg transition duration-200 block"
+                  >
+                    নিবন্ধন ফর্মে যান
+                  </button>
+                </div>
               </div>
-
-              <button
-                onClick={onRegisterClick}
-                className="w-full bg-primary hover:bg-primary/95 text-white font-semibold py-3 rounded-lg text-center shadow-lg transition duration-200 block"
-              >
-                নিবন্ধন ফর্মে যান
-              </button>
-            </div>
-          </div>
+            );
+          })()}
 
         </div>
       </section>
 
       {/* 3. Golden Jubilee Scheduled Events */}
-      <section className="bg-white py-16 border-y border-gray-100">
-        <div className="max-w-none w-full px-4 sm:px-10 lg:px-16 space-y-12">
+      <section className="bg-white py-12 border-y border-gray-100">
+        <div className="max-w-none w-full px-4 sm:px-6 lg:px-8 space-y-12">
           
           <div className="text-center space-y-3 max-w-xl mx-auto">
             <h2 className="text-3xl font-display font-extrabold text-primary">উৎসবের সময়সূচী (Event Catalog)</h2>
@@ -291,24 +313,45 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onRegisterClick, setCu
       </section>
 
       {/* 4. Photo Memories Highlight (Gallery Gallery) */}
-      <section className="max-w-none w-full px-4 sm:px-10 lg:px-16 space-y-10">
+      <section className="max-w-none w-full px-4 sm:px-6 lg:px-8 space-y-10">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b pb-4">
           <div className="space-y-1">
             <h2 className="text-2xl sm:text-3xl font-display font-extrabold text-primary">স্মৃতির গ্যালারি (Memories Gallery)</h2>
             <p className="text-gray-500 font-sans text-sm">বিদ্যালয়ের সুদীর্ঘ পথচলার চিরভাস্বর কিছু ছবি ও বিগত রিইউনিয়ন অ্যালবামসমূহ।</p>
           </div>
-          <button
-            onClick={() => setCurrentTab('gallery')}
-            className="text-primary font-semibold hover:text-amber-600 transition flex items-center space-x-1 text-sm font-sans"
-          >
-            <span>সম্পূর্ণ অ্যালবামে যান</span>
-            <ArrowRight className="h-4 w-4" />
-          </button>
+          
+          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2">
+            {['All', ...Array.from(new Set(gallery.map(i => i.category)))].map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setActiveGalleryCat(cat)}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                  activeGalleryCat === cat 
+                    ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' 
+                    : 'bg-white text-gray-500 border-gray-200 hover:border-primary/30'
+                }`}
+              >
+                {cat === 'All' ? 'সবগুলো (All)' : cat}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-          {gallery.slice(0, 4).map((item) => (
-            <div key={item.galleryId} className="group overflow-hidden rounded-xl bg-white border border-gray-150 shadow-sm hover:shadow-md transition">
+        <motion.div 
+          layout
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6"
+        >
+          {gallery
+            .filter(item => activeGalleryCat === 'All' || item.category === activeGalleryCat)
+            .slice(0, 8)
+            .map((item) => (
+            <motion.div 
+              layout
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              key={item.galleryId} 
+              className="group overflow-hidden rounded-xl bg-white border border-gray-150 shadow-sm hover:shadow-md transition"
+            >
               <div className="relative aspect-video overflow-hidden bg-gray-100">
                 <img
                   src={item.image}
@@ -323,14 +366,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onRegisterClick, setCu
               <div className="p-4">
                 <h3 className="font-bold text-gray-900 text-sm tracking-tight truncate">{item.title}</h3>
               </div>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </section>
 
       {/* 5. Committee Profiles */}
-      <section className="bg-primary/5 py-16 border-y border-primary/5">
-        <div className="max-w-none w-full px-4 sm:px-10 lg:px-16 space-y-12">
+      <section className="bg-primary/5 py-12 border-y border-primary/5">
+        <div className="max-w-none w-full px-4 sm:px-6 lg:px-8 space-y-12">
           
           <div className="text-center space-y-3 max-w-xl mx-auto">
             <h2 className="text-3xl font-display font-extrabold text-primary">উদযাপন উদযাপন কমিটি (Committee)</h2>
@@ -355,6 +398,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onRegisterClick, setCu
                   <p className="text-amber-700 text-xs font-semibold font-sans">
                     {member.designation}
                   </p>
+                  {member.remark && (
+                    <p className="text-gray-500 text-[11px] font-sans italic mt-1.5 border-t border-gray-100 pt-1.5 line-clamp-2">
+                      {member.remark}
+                    </p>
+                  )}
                 </div>
               </div>
             ))}
@@ -364,7 +412,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onRegisterClick, setCu
       </section>
 
       {/* 6. Event Sponsors (সরাসরি স্পন্সরস) */}
-      <section className="max-w-none w-full px-4 sm:px-10 lg:px-16 space-y-8 text-center">
+      <section className="max-w-none w-full px-4 sm:px-6 lg:px-8 space-y-8 text-center">
         <div className="space-y-1">
           <h2 className="text-lg font-bold text-amber-600 font-sans tracking-wide uppercase">আমাদের পৃষ্ঠপোষকবৃন্দ (Event Sponsors)</h2>
           <p className="text-gray-500 font-sans text-sm">সুবর্ণ জয়ন্তী উৎসব সার্থক করতে যেসব প্রতিষ্ঠান আমাদের সহযোগিতা করেছে।</p>

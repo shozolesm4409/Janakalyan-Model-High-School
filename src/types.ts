@@ -101,6 +101,7 @@ export interface Committee {
   name: string;
   designation: string;
   photo?: string;
+  remark?: string;
 }
 
 export interface Sponsor {
@@ -137,6 +138,13 @@ export interface CustomForm {
   permission: 'public' | 'login_required' | 'batch_restricted';
   restrictedBatch?: string;
   registerNowActive?: boolean;
+  showRulesWidget?: boolean;
+  rulesIntro?: string;
+  rulesItems?: string[];
+  paymentNumber?: string;
+  paymentInstructions?: string;
+  submitBtnText?: string;
+  totalSteps?: number;
 }
 
 export interface CustomFormField {

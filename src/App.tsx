@@ -7,9 +7,10 @@ import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { LandingPage } from './components/LandingPage';
-import { RegistrationForm } from './components/RegistrationForm';
 import { UserDashboard } from './components/UserDashboard';
 import { AdminDashboard } from './AdminDashboard';
+import { GalleryPage } from './components/GalleryPage';
+import { CommitteePage } from './components/CommitteePage';
 import { checkAndSeedDatabase } from './seeding';
 import { db, handleFirestoreError, OperationType } from './firebase';
 import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
@@ -50,6 +51,7 @@ function AlumniAppContent() {
   const [customForms, setCustomForms] = useState<any[]>([]);
   const [customFields, setCustomFields] = useState<any[]>([]);
   const [dynamicFieldsData, setDynamicFieldsData] = useState<Record<string, any>>({});
+  const [activeCustomFormStep, setActiveCustomFormStep] = useState<number>(1);
   const [formSubmitting, setFormSubmitting] = useState(false);
 
   // Login forms local states
@@ -314,6 +316,7 @@ function AlumniAppContent() {
               <LandingPage 
                 onRegisterClick={handleRegisterNavigation} 
                 setCurrentTab={setCurrentTab}
+                customForms={customForms}
               />
             </motion.div>
           )}
@@ -325,62 +328,13 @@ function AlumniAppContent() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
-              className="max-w-none w-full px-4 sm:px-10 lg:px-16 space-y-10 pb-20"
             >
-              <div className="text-center space-y-2">
-                <h1 className="text-3.5xl font-display font-extrabold text-primary">ঐতিহাসিক ছবি অ্যালবাম (Walk down Memory Lane)</h1>
-                <p className="text-sm text-gray-500 max-w-lg mx-auto">বিদ্যালয় প্রতিষ্ঠার পর থেকে আজ পর্যন্ত জমা হওয়া সোনালী স্মৃতির গ্যালারি কালেকশন।</p>
-              </div>
-
-              {/* Filters list buttons */}
-              <div className="flex flex-wrap items-center justify-center gap-1.5 border-b pb-4">
-                {categories.map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => setGalleryFilter(cat)}
-                    className={`px-4 py-2 rounded-full text-xs font-bold transition duration-200 ${
-                      galleryFilter === cat
-                        ? 'bg-primary text-white shadow-sm'
-                        : 'bg-white text-gray-600 border hover:bg-gray-50'
-                    }`}
-                  >
-                    {cat === 'All' ? 'সব স্মৃতি' :
-                     cat === 'Historic Campus' ? 'ক্যাম্পাস রূপ' :
-                     cat === 'Reunions' ? 'রিইউনিয়ন snaps' :
-                     cat === 'Old Memories' ? 'পুরনো স্মৃতি' : 'জয়ন্তী অ্যালবাম'}
-                  </button>
-                ))}
-              </div>
-
-              {/* Images Grid list */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                {filteredGallery.length === 0 ? (
-                  <div className="col-span-full text-center py-12 text-gray-400 font-mono">কোন ছবি আপলোড করা নাই।</div>
-                ) : (
-                  filteredGallery.map((item) => (
-                    <motion.div
-                      layout
-                      key={item.galleryId}
-                      className="bg-white rounded-xl overflow-hidden border border-gray-150 shadow-xs hover:shadow-md transition group"
-                    >
-                      <div className="aspect-video relative overflow-hidden bg-gray-50">
-                        <img
-                          src={item.image}
-                          alt={item.title}
-                          referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                        <span className="absolute top-2 left-2 bg-primary/95 text-white font-mono text-[9px] px-2.5 py-0.5 rounded-full font-bold">
-                          {item.category}
-                        </span>
-                      </div>
-                      <div className="p-4">
-                        <h4 className="font-extrabold text-gray-900 text-sm tracking-tight leading-tight group-hover:text-primary transition">{item.title}</h4>
-                      </div>
-                    </motion.div>
-                  ))
-                )}
-              </div>
+              <GalleryPage 
+                categories={categories}
+                galleryFilter={galleryFilter}
+                setGalleryFilter={setGalleryFilter}
+                filteredGallery={filteredGallery}
+              />
             </motion.div>
           )}
 
@@ -391,29 +345,8 @@ function AlumniAppContent() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
-              className="max-w-none w-full px-4 sm:px-10 lg:px-16 space-y-12 pb-20"
             >
-              <div className="text-center space-y-2">
-                <h1 className="text-3.5xl font-display font-extrabold text-primary">উৎসব কমিটি ও সহযোগী সংগঠকবৃন্দ</h1>
-                <p className="text-sm text-gray-500 max-w-lg mx-auto">অর্ধশতাব্দীর এই মিলনমেলাকে স্বার্থক করার লক্ষ্যে নিরলসভাবে পরিশ্রম করে চলা উদযাপন বা সাজসজ্জা কমিটি।</p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-                {committee.map((member) => (
-                  <div key={member.memberId} className="bg-white rounded-xl shadow-xs border border-gray-150 p-6 flex flex-col items-center text-center space-y-4 hover:shadow-md transition duration-200">
-                    <img
-                      src={member.photo || 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=200'}
-                      alt={member.name}
-                      referrerPolicy="no-referrer"
-                      className="w-24 h-24 rounded-full object-cover border-4 border-secondary shadow-md"
-                    />
-                    <div className="space-y-1">
-                      <h3 className="font-extrabold text-gray-900 text-sm sm:text-base leading-tight">{member.name}</h3>
-                      <p className="text-amber-700 text-xs font-semibold font-sans">{member.designation}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <CommitteePage committee={committee} />
             </motion.div>
           )}
 
@@ -446,6 +379,20 @@ function AlumniAppContent() {
               ) : customForms.find(f => f.registerNowActive === true) ? (
                 (() => {
                   const activeForm = customForms.find(f => f.registerNowActive === true);
+                  const targetFields = customFields
+                    .filter(f => f.formId === activeForm.formId)
+                    .sort((a,b) => a.sortOrder - b.sortOrder);
+                  
+                  const totalSteps = activeForm.totalSteps || 1;
+                  let fieldsToRender = targetFields;
+                  
+                  if (totalSteps > 1) {
+                    const chunkSize = Math.ceil(targetFields.length / totalSteps);
+                    const startIndex = (activeCustomFormStep - 1) * chunkSize;
+                    const endIndex = startIndex + chunkSize;
+                    fieldsToRender = targetFields.slice(startIndex, endIndex);
+                  }
+
                   return (
                     <div className="max-w-3xl mx-auto my-6 bg-white rounded-xl shadow-lg border border-gray-150 p-6 sm:p-8 space-y-6">
                       <div className="text-center space-y-2 pb-4 border-b">
@@ -458,48 +405,74 @@ function AlumniAppContent() {
                         )}
                       </div>
                       
-                      <form onSubmit={handleCustomFormSubmit} className="space-y-6">
+                      {/* Step Indicator */}
+                      {totalSteps > 1 && (
+                        <div className="flex items-center justify-between border-b border-gray-150 pb-3 mt-4">
+                          <span className="text-xs font-extrabold text-gray-500 uppercase">ধাপ {activeCustomFormStep} / {totalSteps}</span>
+                          <div className="flex space-x-1.5">
+                            {Array.from({ length: totalSteps }).map((_, i) => (
+                              <div key={i} className={`h-2 w-8 rounded-full ${activeCustomFormStep >= i + 1 ? 'bg-primary' : 'bg-gray-200'}`}></div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <form onSubmit={handleCustomFormSubmit} className="space-y-6 mt-4">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 border border-gray-150 p-4.5 rounded-xl text-left">
                           
                           {/* Beautiful Guidelines & Fee Rates Card inside the Active Dynamic Form */}
-                          <div className="sm:col-span-2 bg-indigo-50/50 rounded-xl border border-indigo-150 p-5 space-y-4 text-left font-sans shadow-3xs mb-2">
-                            <div className="flex items-center space-x-2 pb-2 border-b border-indigo-150">
-                              <BookOpen className="h-5 w-5 text-indigo-700 font-bold" />
-                              <h2 className="text-sm font-extrabold text-indigo-900">সরাসরি নিয়মাবলি ও ফি (Rules & Payment Guide)</h2>
-                            </div>
-                            
-                            <div className="space-y-3.5 text-xs leading-relaxed text-gray-700">
-                              <p className="font-semibold text-gray-750">
-                                উৎসবের নিরাপত্তা ও সুষ্ঠু পরিচালনার লক্ষ্যে প্রতিটি অ্যালামনাসকে অবশ্যই নির্দিষ্ট ফরম পূরণপূর্বক নিবন্ধন করতে হবে।
-                              </p>
+                          {activeForm.showRulesWidget !== false && activeCustomFormStep === 1 && (
+                            <div className="sm:col-span-2 bg-indigo-50/50 rounded-xl border border-indigo-150 p-5 space-y-4 text-left font-sans shadow-3xs mb-2">
+                              <div className="flex items-center space-x-2 pb-2 border-b border-indigo-150">
+                                <BookOpen className="h-5 w-5 text-indigo-700 font-bold" />
+                                <h2 className="text-sm font-extrabold text-indigo-900">সরাসরি নিয়মাবলি ও ফি (Rules & Payment Guide)</h2>
+                              </div>
                               
-                              <ul className="space-y-2 font-sans">
-                                <li className="flex items-start space-x-2">
-                                  <span className="bg-indigo-600 text-white font-bold rounded-full h-4.5 w-4.5 flex items-center justify-center text-[10px] shrink-0">১</span>
-                                  <span className="text-gray-850"><strong>একক অ্যালামনাই ফি:</strong> ১০০০/- টাকা।</span>
-                                </li>
-                                <li className="flex items-start space-x-2">
-                                  <span className="bg-indigo-600 text-white font-bold rounded-full h-4.5 w-4.5 flex items-center justify-center text-[10px] shrink-0">২</span>
-                                  <span className="text-gray-850"><strong>প্রতিটি অতিরিক্ত অতিথি ফি:</strong> ৫০০/- টাকা।</span>
-                                </li>
-                                <li className="flex items-start space-x-2">
-                                  <span className="bg-indigo-600 text-white font-bold rounded-full h-4.5 w-4.5 flex items-center justify-center text-[10px] shrink-0">৩</span>
-                                  <span className="text-gray-850"><strong>উপহার সামগ্রী:</strong> সুবর্ণ জয়ন্তী টি-শার্ট, ক্যাপ, ব্যাজ ও স্মরণিকা ম্যাগাজিন।</span>
-                                </li>
-                              </ul>
+                              <div className="space-y-3.5 text-xs leading-relaxed text-gray-700">
+                                <p className="font-semibold text-gray-750">
+                                  {activeForm.rulesIntro || "উৎসবের নিরাপত্তা ও সুষ্ঠু পরিচালনার লক্ষ্যে প্রতিটি অ্যালামনাসকে অবশ্যই নির্দিষ্ট ফরম পূরণপূর্বক নিবন্ধন করতে হবে।"}
+                                </p>
+                                
+                                <ul className="space-y-2 font-sans">
+                                  {activeForm.rulesItems && activeForm.rulesItems.length > 0 ? (
+                                    activeForm.rulesItems.map((rule, index) => (
+                                      <li key={index} className="flex items-start space-x-2">
+                                        <span className="bg-indigo-600 text-white font-bold rounded-full h-4.5 w-4.5 flex items-center justify-center text-[10px] shrink-0">{index + 1}</span>
+                                        <span className="text-gray-850">{rule}</span>
+                                      </li>
+                                    ))
+                                  ) : (
+                                    <>
+                                      <li className="flex items-start space-x-2">
+                                        <span className="bg-indigo-600 text-white font-bold rounded-full h-4.5 w-4.5 flex items-center justify-center text-[10px] shrink-0">১</span>
+                                        <span className="text-gray-850"><strong>একক অ্যালামনাই ফি:</strong> ১০০০/- টাকা।</span>
+                                      </li>
+                                      <li className="flex items-start space-x-2">
+                                        <span className="bg-indigo-600 text-white font-bold rounded-full h-4.5 w-4.5 flex items-center justify-center text-[10px] shrink-0">২</span>
+                                        <span className="text-gray-850"><strong>প্রতিটি অতিরিক্ত অতিথি ফি:</strong> ৫০০/- টাকা।</span>
+                                      </li>
+                                      <li className="flex items-start space-x-2">
+                                        <span className="bg-indigo-600 text-white font-bold rounded-full h-4.5 w-4.5 flex items-center justify-center text-[10px] shrink-0">৩</span>
+                                        <span className="text-gray-850"><strong>উপহার সামগ্রী:</strong> সুবর্ণ জয়ন্তী টি-শার্ট, ক্যাপ, ব্যাজ ও স্মরণিকা ম্যাগাজিন।</span>
+                                      </li>
+                                    </>
+                                  )}
+                                </ul>
 
-                              <div className="bg-white p-3.5 rounded-lg border border-indigo-100 shadow-3xs space-y-1.5 mt-2">
-                                <div className="text-[9.5px] font-mono tracking-wider font-extrabold text-gray-450 uppercase">বিকাশ / রকেট পেমেন্ট নম্বর:</div>
-                                <div className="text-sm font-extrabold text-indigo-800 font-mono">০১৭৪৫-৯৯০৫০৫ (পার্সোনাল)</div>
-                                <p className="text-[10px] text-gray-500 leading-normal">টাকা পাঠানোর পর ট্রানজেকশন আইডি (TrxID) অবশ্যই পেমেন্ট ফর্মে যুক্ত করতে হবে।</p>
+                                <div className="bg-white p-3.5 rounded-lg border border-indigo-100 shadow-3xs space-y-1.5 mt-2">
+                                  <div className="text-[9.5px] font-mono tracking-wider font-extrabold text-gray-450 uppercase">বিকাশ / রকেট পেমেন্ট নম্বর:</div>
+                                  <div className="text-sm font-extrabold text-indigo-800 font-mono">
+                                    {activeForm.paymentNumber || "০১৭৪৫-৯৯০৫০৫ (পার্সোনাল)"}
+                                  </div>
+                                  <p className="text-[10px] text-gray-500 leading-normal">
+                                    {activeForm.paymentInstructions || "টাকা পাঠানোর পর ট্রানজেকশন আইডি (TrxID) অবশ্যই পেমেন্ট ফর্মে যুক্ত করতে হবে।"}
+                                  </p>
+                                </div>
                               </div>
                             </div>
-                          </div>
+                          )}
 
-                          {customFields
-                            .filter(f => f.formId === activeForm.formId)
-                            .sort((a, b) => a.sortOrder - b.sortOrder)
-                            .map((f) => {
+                          {fieldsToRender.map((f) => {
                               const isReq = !!f.required;
                               return (
                                 <div key={f.fieldId} className={`space-y-1.5 ${
@@ -775,29 +748,59 @@ function AlumniAppContent() {
                             })}
                         </div>
 
-                        <div className="flex justify-end pt-3 border-t border-gray-150">
-                          <button
-                            id="btn-dynamic-form-submit-app"
-                            type="submit"
-                            disabled={formSubmitting}
-                            className="bg-primary hover:bg-primary/95 text-white px-6 py-2.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 mt-1"
-                          >
-                            {formSubmitting ? (
-                              <span>দাখিল হচ্ছে...</span>
-                            ) : (
-                              <>
-                                <Send className="h-3.5 w-3.5" />
-                                <span>নিবন্ধন সম্পন্ন করুন (Submit)</span>
-                              </>
-                            )}
-                          </button>
+                        <div className="flex justify-end pt-3 border-t border-gray-150 gap-2">
+                          {totalSteps > 1 && activeCustomFormStep > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => setActiveCustomFormStep(prev => prev - 1)}
+                              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-2.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer mt-1"
+                            >
+                              পূর্ববর্তী ধাপ
+                            </button>
+                          )}
+                          
+                          {totalSteps > 1 && activeCustomFormStep < totalSteps ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                 const formEl = e.currentTarget.closest('form');
+                                 if (formEl && formEl.checkValidity()) {
+                                   setActiveCustomFormStep(prev => prev + 1);
+                                 } else if (formEl) {
+                                   formEl.reportValidity();
+                                 }
+                              }}
+                              className="bg-gray-800 hover:bg-gray-900 text-white px-6 py-2.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer mt-1"
+                            >
+                              পরবর্তী ধাপ
+                            </button>
+                          ) : (
+                            <button
+                              id="btn-dynamic-form-submit-app"
+                              type="submit"
+                              disabled={formSubmitting}
+                              className="bg-primary hover:bg-primary/95 text-white px-6 py-2.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 mt-1"
+                            >
+                              {formSubmitting ? (
+                                <span>দাখিল হচ্ছে...</span>
+                              ) : (
+                                <>
+                                  <Send className="h-3.5 w-3.5" />
+                                  <span>{activeForm.submitBtnText || 'নিবন্ধন সম্পন্ন করুন (Submit)'}</span>
+                                </>
+                              )}
+                            </button>
+                          )}
                         </div>
                       </form>
                     </div>
                   );
                 })()
               ) : (
-                <RegistrationForm onSuccess={() => setRegSuccess(true)} />
+                <div className="max-w-md mx-auto my-12 bg-white rounded-xl shadow border border-gray-150 p-8 text-center space-y-4">
+                  <h2 className="text-xl font-bold text-gray-800">নিবন্ধন বন্ধ রয়েছে</h2>
+                  <p className="text-gray-500 text-sm">দুঃখিত, বর্তমানে কোনো নিবন্ধন ফর্ম রানিং নেই।</p>
+                </div>
               )}
             </motion.div>
           )}

@@ -38,6 +38,12 @@ import {
   BookOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { UserSidebar } from './UserSidebar';
+import { UserOverview } from './user/UserOverview';
+import { NoticeBoard } from './user/NoticeBoard';
+import { JubileeEvents } from './user/JubileeEvents';
+import { DigitalCertificateTab } from './user/DigitalCertificateTab';
+import { ProfileSettings } from './user/ProfileSettings';
 
 interface UserDashboardProps {
   setCurrentTab?: (tab: string) => void;
@@ -77,6 +83,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
 
   // Input states for dynamic application forms (Apply Form panel)
   const [activeFormType, setActiveFormType] = useState<string>('id_card');
+  const [activeCustomFormStep, setActiveCustomFormStep] = useState<number>(1);
   const [idName, setIdName] = useState('');
   const [idMobile, setIdMobile] = useState('');
   const [idBatch, setIdBatch] = useState('');
@@ -93,6 +100,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
   const [articleContent, setArticleContent] = useState('');
 
   const [formSubmitting, setFormSubmitting] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+
 
   // Edit submission state
   const [editingClassicSub, setEditingClassicSub] = useState<AppFormSubmission | null>(null);
@@ -385,54 +394,48 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
     }
 
     const reader = new FileReader();
-    reader.onload = (e) => {
-      if (e.target?.result) {
-        setPhoto(e.target.result as string);
-      }
+    reader.onload = (ev) => {
+      setPhoto(ev.target?.result as string);
     };
     reader.readAsDataURL(file);
   };
 
-  // Handle profile updates
-  const handleProfileSave = async (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !mobile.trim()) {
-      alert("নাম এবং মোবাইল নাম্বার বাধ্যতামূলক!");
-      return;
-    }
     setSaving(true);
     try {
-      const userRef = doc(db, 'users', currentUser.uid);
-      await updateDoc(userRef, {
-        name: name.trim(),
-        mobile: mobile.trim(),
+      if (!currentUser?.uid) return;
+      await updateDoc(doc(db, 'users', currentUser.uid), {
+        name,
+        mobile,
         batch,
-        profilePhoto: photo.trim() || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150'
+        profilePhoto: photo,
+        updatedAt: new Date().toISOString()
       });
       await refreshUserProfile();
       setEditing(false);
       setActiveSubTab('overview');
-      alert("আপনার প্রোফাইল তথ্য সফলভাবে আপডেট হয়েছে!");
+      alert("আপনার প্রোফাইল আপডেট করা হয়েছে!");
     } catch (err) {
       console.error(err);
-      alert("তথ্য আপডেট করতে ব্যর্থ হয়েছে।");
+      handleFirestoreError(err, OperationType.UPDATE, 'users');
+      alert("প্রোফাইল আপডেট করতে সমস্যা হয়েছে।");
     } finally {
       setSaving(false);
     }
   };
 
-  // Handle Dynamic Application submissions
-  const handleApplicationSubmit = async (e: React.FormEvent) => {
+  const handleAppFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormSubmitting(true);
     try {
       const submissionId = `sub_${Date.now()}`;
-      let data: Record<string, any> = {};
+      let data: any = {};
       let formLabel = '';
 
       if (activeFormType === 'id_card') {
         if (!idName.trim() || !idMobile.trim() || !idBatch.trim()) {
-          alert('অনুগ্রহ করে নাম, মোবাইল ও ব্যাচ সঠিকভাবে প্রদান করুন।');
+          alert('অনুগ্রহ করে সব তারকা (*) চিহ্নিত তথ্য প্রদান করুন।');
           setFormSubmitting(false);
           return;
         }
@@ -462,55 +465,55 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
         formLabel = 'ক্যারিয়ার মেন্টরশিপ হাবে ভলান্টিয়ার আবেদন (Career Mentorship)';
       } else if (activeFormType === 'magazine') {
         if (!articleTitle.trim() || !articleContent.trim()) {
-          alert('অনুগ্রহ করে শিরোনাম এবং মূল লেখার কন্টেন্ট সঠিকভাবে পূর্ণ করুন।');
+          alert('অনুগ্রহ করে শিরোনাম এবং মূল লেখার কন্টেন্ট সঠিকভাবে লিখুন।');
           setFormSubmitting(false);
           return;
         }
         data = {
-          name: currentUser.name,
-          batch: currentUser.batch || '',
           title: articleTitle.trim(),
           topic: articleTopic,
           content: articleContent.trim(),
         };
-        formLabel = 'সুবর্ণ জয়ন্তী স্মরণিকা ম্যাগাজিন স্মৃতিকথা প্রকাশ (Magazine Contribution)';
+        formLabel = 'সুবর্ণ জয়ন্তী স্মরণিকা ম্যাগাজিনে লেখা জমা (Magazine Article)';
       }
 
-      await setDoc(doc(db, 'applications', submissionId), {
+      await setDoc(doc(db, 'form_submissions', submissionId), {
         submissionId,
+        formId: activeFormType,
+        formTitle: formLabel,
         userId: currentUser.uid,
         userName: currentUser.name,
         userEmail: currentUser.email,
-        formType: activeFormType,
-        formLabel,
-        status: 'pending',
-        submittedAt: new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' }) + ' ' + new Date().toLocaleTimeString('bn-BD'),
         data,
+        submittedAt: new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' }) + ' ' + new Date().toLocaleTimeString('bn-BD'),
+        status: 'pending'
       });
 
-      alert('আপনার আবেদনটি সফলভাবে জমা নেওয়া হয়েছে এবং নিচে সাবমিশন তালিকায় ট্র্যাকিংয়ের জন্য যুক্ত হয়েছে!');
-      
-      // Reset unique variable inputs
-      if (activeFormType === 'id_card') {
-        setIdOccupation('');
-        setIdAddress('');
-      } else if (activeFormType === 'mentorship') {
-        setMentorBio('');
-      } else if (activeFormType === 'magazine') {
-        setArticleTitle('');
-        setArticleContent('');
-      }
+      alert('আপনার আবেদনটি সফলভাবে সাবমিট করা হয়েছে!');
+      setArticleTitle('');
+      setArticleContent('');
+      setMentorBio('');
+      setIdName('');
+      setIdMobile('');
+      setIdBatch('');
+      setIdOccupation('');
+      setIdAddress('');
     } catch (err) {
       console.error(err);
-      alert('আবেদন জমা দিতে সমস্যা হয়েছে। দয়া করে পরবর্তীতে পুনরায় চেষ্টা করুন।');
+      alert('আবেদন জমা দিতে সমস্যা হয়েছে।');
     } finally {
       setFormSubmitting(false);
     }
   };
 
   // Handle Schema-driven Dynamic Form Submissions
-  const handleCustomFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCustomFormSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!isPreviewing) {
+      setIsPreviewing(true);
+      return;
+    }
+    
     const currentForm = customForms.find(f => f.formId === activeFormType);
     if (!currentForm) return;
 
@@ -523,269 +526,53 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
       const allowedBatch = currentForm.restrictedBatch?.trim();
       const userBatch = currentUser.batch?.trim();
       if (allowedBatch && userBatch !== allowedBatch) {
-        alert(`দুঃখিত! এই ফর্মটি শুধুমাত্র এসএসসি ${allowedBatch} পাসের ব্যাচের শিক্ষার্থীদের জন্য সীমাবদ্ধ।`);
-        return;
-      }
-    }
-
-    const currentFields = customFields.filter(f => f.formId === activeFormType);
-    for (const f of currentFields) {
-      if (f.required && !dynamicFieldsData[f.fieldId]) {
-        alert(`"${f.label}" ফিল্ডটি অবশ্যই পূরণ করতে হবে।`);
+        alert(`দুঃখিত! এই ফর্মটি শুধুমাত্র এসএসসি ${allowedBatch} পাসের ব্যাচের শিক্ষার্থীদের জন্য প্রযোজ্য।`);
         return;
       }
     }
 
     setFormSubmitting(true);
     try {
-      const subId = `sub_${Date.now()}`;
-      await setDoc(doc(db, 'form_submissions', subId), {
-        submissionId: subId,
-        formId: activeFormType,
+      const submissionId = `sub_custom_${Date.now()}`;
+      await setDoc(doc(db, 'form_submissions', submissionId), {
+        submissionId,
+        formId: currentForm.formId,
+        formTitle: currentForm.title,
         userId: currentUser.uid,
-        userName: currentUser.name || 'Anonymous User',
-        userEmail: currentUser.email || 'N/A',
+        userName: currentUser.name,
+        userEmail: currentUser.email,
         data: dynamicFieldsData,
-        submittedAt: new Date().toISOString()
+        submittedAt: new Date().toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' }) + ' ' + new Date().toLocaleTimeString('bn-BD'),
+        status: 'pending'
       });
 
-      alert(currentForm.successMessage || 'আপনার ডাটা সফলভাবে ফর্মে সাবমিট করা হয়েছে!');
+      alert('আপনার ফরমটি সফলভাবে সাবমিট করা হয়েছে!');
       setDynamicFieldsData({});
-      
-      if (currentForm.redirectUrl) {
-        window.location.href = currentForm.redirectUrl;
-      }
+      setIsPreviewing(false);
+      setActiveFormType('');
     } catch (err) {
       console.error(err);
-      alert('তথ্য সাবমিট করতে ত্রুটি হয়েছে। অনুগ্রহ করে আবার ট্রাই করুন।');
+      alert('সাবমিট করতে সমস্যা হয়েছে।');
     } finally {
       setFormSubmitting(false);
     }
   };
 
-  const isApproved = registration?.approvalStatus === 'approved' && payment?.paymentStatus === 'approved';
-
-  // Sub-navigation tab list with localized titles and icons
-  const sidebarTabs = [
-    { id: 'overview', label: 'ওভারভিউ ড্যাশবোর্ড', subtitle: 'Overview & Status', icon: LayoutDashboard },
-    { id: 'notices', label: 'ঘোষণা ও নোটিশ বোর্ড', subtitle: 'Notice Board', icon: Bell },
-    { id: 'apply', label: 'আবেদনপত্র সমূহ (Apply)', subtitle: 'Apply Form Panel', icon: AppWindow },
-    { id: 'certificate', label: 'স্মারক প্রশংসাপত্র', subtitle: 'Digital Certificate', icon: Award, badge: isApproved ? 'Approved' : 'Pending' },
-    { id: 'events', label: 'শ্রেণীভিত্তিক কর্মসূচী', subtitle: 'Jubilee Events', icon: Calendar },
-    { id: 'profile', label: 'প্রোফাইল সম্পাদন', subtitle: 'Settings & Photo', icon: Settings },
-  ] as const;
+  const isApproved = registration?.approvalStatus === 'approved';
 
   return (
-    <div className="max-w-none w-full px-4 sm:px-10 lg:px-16 py-2 text-gray-800 pb-24">
+    <div className="max-w-none w-full px-4 sm:px-6 lg:px-8 py-2 text-gray-800 pb-24">
       <div className="flex flex-col lg:flex-row gap-8 items-start">
         
-        {/* ========================================================================================= */}
-        {/* DESKTOP SIDEBAR PANEL */}
-        {/* ========================================================================================= */}
-        <aside id="user-desktop-sidebar" className="hidden lg:flex w-72 shrink-0 flex-col bg-white rounded-2xl border border-gray-150 p-6 shadow-sm sticky top-24 space-y-7 group">
-          {/* User Mini Profile Brief */}
-          <div className="flex flex-col items-center text-center space-y-3 pb-6 border-b border-gray-100">
-            <div className="relative">
-              <img
-                src={currentUser.profilePhoto || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150'}
-                alt="Profile Avatar"
-                className="h-20 w-20 rounded-full object-cover border-4 border-secondary/50 shadow-md transform group-hover:scale-105 transition-all duration-300"
-                referrerPolicy="no-referrer"
-              />
-              {isApproved ? (
-                <span className="absolute bottom-0 right-0 bg-green-500 text-white p-1 rounded-full border-2 border-white shadow-sm" title="Verified Member">
-                  <CheckCircle className="h-3 w-3" />
-                </span>
-              ) : (
-                <span className="absolute bottom-0 right-0 bg-amber-500 text-white p-1 rounded-full border-2 border-white shadow-sm" title="Verification Pending">
-                  <Clock className="h-3 w-3" />
-                </span>
-              )}
-            </div>
-            
-            <div className="space-y-1">
-              <h4 className="text-base font-extrabold text-gray-900 tracking-tight leading-short">{currentUser.name}</h4>
-              <p className="text-[11px] font-semibold text-gray-400 font-mono">SSC Batch {currentUser.batch}</p>
-              <div className="inline-flex items-center space-x-1 mt-1 bg-primary/10 text-primary text-[10px] px-2.5 py-0.5 rounded font-mono font-bold uppercase">
-                <span>{currentUser.role} Panel</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Navigation Links list */}
-          <nav className="space-y-1.5 flex-1 font-sans">
-            {sidebarTabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeSubTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  id={`sidebar-subtab-btn-${tab.id}`}
-                  onClick={() => setActiveSubTab(tab.id as any)}
-                  className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition-all duration-200 cursor-pointer ${
-                    isActive 
-                      ? 'bg-primary text-white font-bold shadow-md shadow-primary/10' 
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3.5">
-                    <Icon className={`h-4.5 w-4.5 shrink-0 ${isActive ? 'text-white' : 'text-gray-400'}`} />
-                    <div className="leading-none text-left">
-                      <span className="text-xs font-semibold block">{tab.label}</span>
-                      <span className={`text-[9px] font-mono block mt-0.5 ${isActive ? 'text-white/70' : 'text-gray-400 font-medium'}`}>{tab.subtitle}</span>
-                    </div>
-                  </div>
-                  {tab.id === 'certificate' && tab.badge && (
-                    <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tight ${
-                      isApproved 
-                        ? (isActive ? 'bg-white text-green-700' : 'bg-green-100 text-green-800') 
-                        : (isActive ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800')
-                    }`}>
-                      {tab.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-
-          {/* Danger segment footer helpers */}
-          <div className="pt-4 border-t border-gray-100 space-y-2">
-            <button 
-              id="sidebar-btn-logout"
-              onClick={logout}
-              className="w-full text-left px-4 py-2.5 text-xs text-red-600 hover:bg-red-50 hover:text-red-700 rounded-xl transition flex items-center space-x-3 font-semibold"
-            >
-              <LogOut className="h-4 w-4" />
-              <span>লগ আউট (Sign Out)</span>
-            </button>
-          </div>
-        </aside>
-
-        {/* ========================================================================================= */}
-        {/* MOBILE SIDEBAR ACTIONS HEADER & TOGGLES */}
-        {/* ========================================================================================= */}
-        <div id="user-mobile-header" className="lg:hidden w-full bg-white rounded-xl border border-gray-150 p-4 shadow-sm flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <button
-              id="user-mobile-sidebar-toggle"
-              onClick={() => setMobileSidebarOpen(true)}
-              className="p-2 border rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-700 transition"
-              title="Open Navigation menu"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-            <div>
-              <span className="text-xs text-gray-400 font-mono block">আমার ড্যাশবোর্ড / {activeSubTab.toUpperCase()}</span>
-              <strong className="text-sm font-bold text-gray-800 block">
-                {activeSubTab === 'overview' ? 'ড্যাশবোর্ড ওভারভিউ' :
-                 activeSubTab === 'notices' ? 'ঘোষণা ও নোটিশ বোর্ড' :
-                 activeSubTab === 'apply' ? 'আবেদনপত্র সমূহ' :
-                 activeSubTab === 'certificate' ? 'স্মারক প্রশংসাপত্র' :
-                 activeSubTab === 'events' ? 'শ্রেণীভিত্তিক কর্মসূচী' : 'প্রোফাইল সম্পাদন'}
-              </strong>
-            </div>
-          </div>
-          
-          <img
-            src={currentUser.profilePhoto || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150'}
-            alt="Avatar"
-            className="h-10 w-10 rounded-full object-cover border border-secondary shadow-sm"
-          />
-        </div>
-
-        {/* ========================================================================================= */}
-        {/* MOBILE SIDEBAR DRAWER POPUP */}
-        {/* ========================================================================================= */}
-        <AnimatePresence>
-          {mobileSidebarOpen && (
-            <div className="fixed inset-0 z-50 lg:hidden flex">
-              {/* Backdrop fade filter */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setMobileSidebarOpen(false)}
-                className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs"
-              />
-
-              {/* Sidebar container sliding transition */}
-              <motion.div
-                initial={{ x: '-100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '-100%' }}
-                transition={{ type: 'tween', duration: 0.25 }}
-                className="relative flex flex-col w-80 max-w-[85vw] bg-white h-full shadow-2xl p-6 overflow-y-auto space-y-6"
-              >
-                <div className="flex justify-between items-center pb-4 border-b">
-                  <div className="flex items-center space-x-1.5 text-primary">
-                    <Award className="h-5 w-5 text-secondary" />
-                    <span className="font-display font-medium text-sm">মেম্বারশিপ মেনু (Menu)</span>
-                  </div>
-                  <button 
-                    onClick={() => setMobileSidebarOpen(false)}
-                    className="p-1 px-2 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded font-bold"
-                  >
-                    X
-                  </button>
-                </div>
-
-                <div className="flex flex-col items-center text-center space-y-2 py-4">
-                  <img
-                    src={currentUser.profilePhoto || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150'}
-                    alt="avatar"
-                    className="h-16 w-16 rounded-full object-cover border-2 border-secondary/50"
-                  />
-                  <div>
-                    <h5 className="font-bold text-gray-900 text-sm leading-none">{currentUser.name}</h5>
-                    <span className="text-[10px] text-gray-400 font-mono">SSC Batch - {currentUser.batch}</span>
-                  </div>
-                </div>
-
-                <nav className="space-y-1.5 flex-1">
-                  {sidebarTabs.map((tab) => {
-                    const Icon = tab.icon;
-                    const isActive = activeSubTab === tab.id;
-                    return (
-                      <button
-                        key={tab.id}
-                        id={`mob-subtab-btn-${tab.id}`}
-                        onClick={() => { setActiveSubTab(tab.id as any); setMobileSidebarOpen(false); }}
-                        className={`w-full text-left px-4 py-3 rounded-xl flex items-center justify-between transition ${
-                          isActive 
-                            ? 'bg-primary text-white font-bold' 
-                            : 'text-gray-600 hover:bg-gray-50'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <Icon className={`h-4.5 w-4.5 shrink-0 ${isActive ? 'text-white' : 'text-gray-400'}`} />
-                          <span className="text-xs font-semibold">{tab.label}</span>
-                        </div>
-                        {tab.id === 'certificate' && tab.badge && (
-                          <span className={`text-[8px] px-2 py-0.5 rounded font-bold uppercase ${
-                            isApproved ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
-                          }`}>
-                            {tab.badge}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </nav>
-
-                <div className="pt-4 border-t border-gray-100">
-                  <button
-                    onClick={() => { logout(); setMobileSidebarOpen(false); }}
-                    className="w-full text-left px-4 py-2.5 text-xs text-red-600 hover:bg-red-50 font-bold rounded-xl flex items-center space-x-2"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    <span>লগআউট (Logout)</span>
-                  </button>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
+        <UserSidebar 
+          currentUser={currentUser}
+          activeSubTab={activeSubTab}
+          setActiveSubTab={setActiveSubTab}
+          mobileSidebarOpen={mobileSidebarOpen}
+          setMobileSidebarOpen={setMobileSidebarOpen}
+          logout={logout}
+          isApproved={isApproved}
+        />
 
         {/* ========================================================================================= */}
         {/* MAIN WORKSPACE CONTENT CONTAINER */}
@@ -795,321 +582,37 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
             
             {/* SUBTAB: OVERVIEW PANEL */}
             {activeSubTab === 'overview' && (
-              <motion.div
-                key="subtab-overview"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="space-y-8"
-              >
-                {/* Greeting Hero card */}
-                <div className="bg-radial-gradient bg-primary text-white p-6 sm:p-8 rounded-2xl relative overflow-hidden shadow-lg border border-primary/20">
-                  <div className="absolute top-0 right-0 h-40 w-40 bg-secondary/10 rounded-full blur-2xl transform translate-x-8 -translate-y-8" />
-                  <div className="relative z-10 space-y-2">
-                    <span className="bg-secondary/20 text-secondary border border-secondary/25 text-[10px] uppercase font-bold tracking-widest px-3 py-1 rounded inline-block font-sans">
-                      অ্যালামনাই পোর্টাল (Status Overview)
-                    </span>
-                    <h2 className="text-2.5xl sm:text-3.xl font-display font-black leading-tight text-white mb-1">
-                      স্বাগতম, {currentUser.name}!
-                    </h2>
-                    <p className="text-sm text-gray-200 font-sans max-w-xl leading-relaxed">
-                      জনকল্যাণ হাই স্কুলের সুবর্ণ জয়ন্তী উদযাপন প্যানেলে আপনাকে স্বাগত। নিচে আপনার আবেদনপত্র এবং পেমেন্ট স্লিপের বর্তমান লাইভ অগ্রগতি এবং ভেরিফিকেশন স্ট্যাটাস ট্র্যাক করুন।
-                    </p>
-                  </div>
-                </div>
-
-                {/* Progress Tracking Widget Cards (High visual quality) */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  
-                  {/* Registration tracking detail */}
-                  <div className="bg-white rounded-xl border border-gray-150 p-6 shadow-xs relative overflow-hidden flex flex-col justify-between h-56 group hover:shadow-md transition duration-200">
-                    <div className="absolute top-0 right-0 -mr-6 -mt-6 h-24 w-24 bg-primary/5 rounded-full transform group-hover:scale-110 transition-transform duration-300" />
-                    <div>
-                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 font-mono">ধাপ ১: পুনর্মিলনী রেজিস্ট্রেশন</div>
-                      
-                      {registration ? (
-                        <div className="space-y-3 mt-4">
-                          <div className="flex items-center space-x-2">
-                            {registration.approvalStatus === 'approved' ? (
-                              <div className="h-9 w-9 bg-green-50 rounded-full flex items-center justify-center text-green-600">
-                                <CheckCircle className="h-5 w-5" />
-                              </div>
-                            ) : registration.approvalStatus === 'rejected' ? (
-                              <div className="h-9 w-9 bg-red-50 rounded-full flex items-center justify-center text-red-600">
-                                <AlertCircle className="h-5 w-5" />
-                              </div>
-                            ) : (
-                              <div className="h-9 w-9 bg-amber-50 rounded-full flex items-center justify-center text-amber-600">
-                                <Clock className="h-5 w-5" />
-                              </div>
-                            )}
-                            <div>
-                              <strong className="text-sm font-bold text-gray-900 block">
-                                {registration.approvalStatus === 'approved' ? 'রেজিস্ট্রেশন আবেদন অনুমোদিত' :
-                                 registration.approvalStatus === 'rejected' ? 'আবেদন বাতিল করা হয়েছে' :
-                                 'নিবন্ধন খসড়া ভেরিফাই হচ্ছে'}
-                              </strong>
-                              <span className="text-xs text-gray-400 font-sans font-medium">আবেদন আইডি - #{registration.registrationId}</span>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="mt-4 space-y-1">
-                          <h4 className="text-sm font-bold text-amber-700">কোন রেজিস্ট্রেশন আবেদন পাওয়া যায়নি</h4>
-                          <p className="text-xs text-gray-500 font-sans max-w-xs leading-relaxed">সুবর্ণ জয়ন্তী অনুষ্ঠান উদযাপনে স্বপ্রণোদিত অংশ নিতে আজই নিবন্ধিত হয়ে নিন।</p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="pt-4 border-t border-gray-50 flex justify-between items-center text-xs font-semibold">
-                      <span className="text-gray-400">দাখিলকৃত গেস্ট: {registration?.participationInfo?.guestCount || 0} জন</span>
-                      <span className="text-primary font-mono bg-secondary/15 px-2 py-0.5 rounded">টি-শার্ট: {registration?.participationInfo?.tshirtSize || 'XL'}</span>
-                    </div>
-                  </div>
-
-                  {/* Payment tracking details */}
-                  <div className="bg-white rounded-xl border border-gray-150 p-6 shadow-xs relative overflow-hidden flex flex-col justify-between h-56 group hover:shadow-md transition duration-200">
-                    <div className="absolute top-0 right-0 -mr-6 -mt-6 h-24 w-24 bg-pink-50 rounded-full transform group-hover:scale-110 transition-transform duration-300" />
-                    <div>
-                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 font-mono">ধাপ ২: ব্যাংক / মোবাইল পেমেন্ট স্লিপ</div>
-                      
-                      {payment ? (
-                        <div className="space-y-3 mt-4">
-                          <div className="flex items-center space-x-2">
-                            {payment.paymentStatus === 'approved' ? (
-                              <div className="h-9 w-9 bg-green-50 rounded-full flex items-center justify-center text-green-600">
-                                <CheckCircle className="h-5 w-5" />
-                              </div>
-                            ) : payment.paymentStatus === 'rejected' ? (
-                              <div className="h-9 w-9 bg-red-50 rounded-full flex items-center justify-center text-red-600">
-                                <AlertCircle className="h-5 w-5" />
-                              </div>
-                            ) : (
-                              <div className="h-9 w-9 bg-amber-50 rounded-full flex items-center justify-center text-amber-600">
-                                <Clock className="h-5 w-5" />
-                              </div>
-                            )}
-                            <div>
-                              <strong className="text-sm font-bold text-gray-900 block">
-                                {payment.paymentStatus === 'approved' ? 'পেমেন্ট স্লিপ এপ্রুভ হয়েছে' :
-                                 payment.paymentStatus === 'rejected' ? 'পেমেন্ট ত্রুটিপূর্ণ (Rejected)' :
-                                 'লেনদেন রসিদ মেলাানো হচ্ছে'}
-                              </strong>
-                              <span className="text-xs text-gray-400 font-mono font-medium">TrxID: {payment.trxId}</span>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="mt-4 space-y-1">
-                          <h4 className="text-sm font-bold text-gray-500">কোন পেমেন্ট স্লিপ পাওয়া যায়নি</h4>
-                          <p className="text-xs text-gray-500 font-sans max-w-xs leading-relaxed">রেজিস্ট্রেশন ফি পরিশোধ করার পর তার বিবরণ এবং স্ক্রিনশট রসিদ আপলোড করুন।</p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="pt-4 border-t border-gray-50 flex justify-between items-center text-sm">
-                      <span className="text-xs font-semibold text-gray-400">পরিশোধিত ফি পরিমাণ:</span>
-                      <strong className="text-sm text-pink-600 font-extrabold font-mono tracking-wide">{payment?.amount || 0} BDT</strong>
-                    </div>
-                  </div>
-
-                </div>
-
-                {/* Important alert instructions guidelines */}
-                <div className="border border-blue-150 bg-blue-50/20 rounded-2xl p-6 sm:p-8 text-xs sm:text-sm text-gray-600 leading-relaxed flex items-start space-x-4">
-                  <span className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center text-primary shrink-0 mt-0.5">
-                    <AlertCircle className="h-5 w-5" />
-                  </span>
-                  <div className="space-y-1">
-                    <strong className="text-gray-900 font-bold block mb-1 text-sm">সাপোর্ট ও ভেরিফিকেশন সংক্রান্ত জরুরী নির্দেশনা:</strong>
-                    <p className="leading-relaxed">
-                      আবেদন আপলোড করার পর উৎসব উপ-কমিটির দায়িত্বপ্রাপ্ত প্রাক্তনীরা ২৪ ঘণ্টার মধ্যে আপনার এসএসসি পাসিং ব্যাচ, নাম এবং ট্রানজেকশন স্ক্রিনশট মিলিয়ে আবেদনটির সত্যতা যাচাই করবেন। অনুমোদন সম্পন্ন হওয়ার সাথে সাথেই সাইডবারের <strong>স্মারক প্রশংসাপত্র (Digital Certificate)</strong> অপশনটি আনলক হয়ে যাবে, যেখানে নিজের নাম ও ব্যাচ খোদাইকৃত উৎসব সার্টিফিকেট পেয়ে যাবেন।
-                    </p>
-                  </div>
-                </div>
-
-                {/* Quick Profile Read-Only Widget */}
-                <div className="bg-white rounded-2xl border border-gray-150 p-6 sm:p-8 space-y-6">
-                  <div className="flex items-center space-x-2 pb-3 border-b border-gray-100">
-                    <UserIcon className="h-5 w-5 text-primary" />
-                    <h3 className="text-base font-bold text-gray-800">অ্যালামনাই মূল প্রোফাইল সংক্ষিপ্ত বিবরণ</h3>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-xs text-gray-600">
-                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                      <span className="text-gray-400 font-medium block">প্রাক্তনী ইমেইল ঠিকানা</span>
-                      <strong className="text-gray-900 font-mono mt-1 font-bold text-sm block truncate">{currentUser.email}</strong>
-                    </div>
-                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                      <span className="text-gray-400 font-medium block">যোগাযোগ মোবাইল নং</span>
-                      <strong className="text-gray-900 font-mono mt-1 font-bold text-sm block">{currentUser.mobile || '০১৭xxxxxxxx'}</strong>
-                    </div>
-                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                      <span className="text-gray-400 font-medium block">এসএসসি পাসের ব্যাচ</span>
-                      <strong className="text-gray-950 mt-1 font-bold text-sm block">SSC Batch {currentUser.batch}</strong>
-                    </div>
-                  </div>
-                </div>
-
-              </motion.div>
+              <UserOverview 
+                currentUser={currentUser}
+                registration={registration}
+                payment={payment}
+              />
             )}
 
             {/* SUBTAB: DIGITAL CERTIFICATE PANEL */}
             {activeSubTab === 'certificate' && (
-              <motion.div
-                key="subtab-certificate"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="space-y-6"
-              >
-                {isApproved ? (
-                  <div className="bg-white rounded-2xl shadow-sm border border-gray-150 p-6 sm:p-8 space-y-6">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-3 border-b gap-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="h-10 w-10 bg-primary/10 text-primary rounded-full flex items-center justify-center">
-                          <Award className="h-5.5 w-5.5" />
-                        </div>
-                        <div>
-                          <h2 className="text-lg sm:text-xl font-bold text-primary font-display">স্মারক ডিজিটাল প্রশংসাপত্র (Attendance Certificate)</h2>
-                          <p className="text-[11px] text-gray-400 font-sans">পুনর্মিলনী নিবন্ধন ও পেমেন্ট সফলভাবে এপ্রুভ ও ভেরিফায়েড হয়েছে। অভিনন্দন!</p>
-                        </div>
-                      </div>
-                      {setCurrentTab && (
-                        <button
-                          onClick={() => setCurrentTab('register')}
-                          className="bg-primary hover:bg-primary/95 text-white px-4 py-2 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98]"
-                        >
-                          <PlusCircle className="h-3.5 w-3.5" />
-                          <span>নতুন রেজিস্ট্রেশন করুন (Register Now)</span>
-                        </button>
-                      )}
-                    </div>
-                    
-                    <AppCertificate
-                      recipientName={currentUser.name}
-                      batch={currentUser.batch || '2026'}
-                      registrationId={registration?.registrationId || 'REG-PENDING'}
-                    />
-                  </div>
-                ) : (
-                  <div className="border border-amber-200 bg-amber-50/15 rounded-2xl p-8 sm:p-12 text-center space-y-5 max-w-xl mx-auto my-6 shadow-sm">
-                    <div className="h-16 w-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto shadow-inner transform rotate-12">
-                      <Award className="h-8 w-8" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <h3 className="font-extrabold text-lg sm:text-xl text-gray-900 leading-tight">সার্টিফিকেট সাময়িকভাবে লক করা আছে (Certificate Locked)</h3>
-                      <p className="text-gray-500 text-xs sm:text-sm leading-relaxed max-w-sm mx-auto">
-                        আপনার দাখিলকৃত ইনফরমেশন ও ট্রানজেকশন স্ক্রিনশট যাচাইধীন রয়েছে। অ্যাডমিন প্যানেল এটি এপ্রুভ করার সাথে সাথে আপনার জন্য স্মারক ডিজিটাল প্রশংসাপত্রটি এখানে সয়ংক্রিয়ভাবে জেনারেট হয়ে যাবে।
-                      </p>
-                    </div>
-                    
-                    <div className="pt-2 bg-gray-50 border rounded-xl p-4 text-left space-y-1.5 max-w-xs mx-auto font-mono text-[10px] text-gray-500">
-                      <div className="flex justify-between">
-                        <span>নিবন্ধন অবস্থা:</span>
-                        <strong className="text-amber-700 uppercase font-semibold">{registration?.approvalStatus || 'Not Joined'}</strong>
-                      </div>
-                      <div className="flex justify-between border-t pt-1.5">
-                        <span>পেমেন্ট অবস্থা:</span>
-                        <strong className="text-amber-700 uppercase font-semibold">{payment?.paymentStatus || 'No Record'}</strong>
-                      </div>
-                    </div>
-
-                    <div className="pt-4 flex flex-col items-center justify-center space-y-2">
-                      {setCurrentTab && (
-                        <button
-                          onClick={() => setCurrentTab('register')}
-                          className="bg-amber-550 hover:bg-amber-600 active:scale-95 text-white px-6 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold shadow-md flex items-center justify-center space-x-2 transition duration-200 cursor-pointer animate-smooth"
-                        >
-                          <PlusCircle className="h-4.5 w-4.5" />
-                          <span>রেজিস্ট্রেশন করুন (Register Now)</span>
-                        </button>
-                      )}
-                      <p className="text-[10px] text-gray-400">ইতিমধ্যে কোনো তথ্য জমা না দিয়ে থাকলে দয়া করে রেজিস্ট্রেশন ফর্মটি পূরণ করুন।</p>
-                    </div>
-                  </div>
-                )}
-              </motion.div>
+              <DigitalCertificateTab 
+                currentUser={currentUser}
+                registration={registration}
+                payment={payment}
+                isApproved={isApproved}
+                setCurrentTab={setCurrentTab}
+              />
             )}
 
             {/* SUBTAB: EVENT PROGRAMS SHEDULE */}
             {activeSubTab === 'events' && (
-              <motion.div
-                key="subtab-events"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="bg-white rounded-2xl shadow-sm border border-gray-150 p-6 sm:p-8 space-y-6"
-              >
-                <div className="flex items-center space-x-2 pb-3 border-b">
-                  <Calendar className="h-5.5 w-5.5 text-primary" />
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-800">সুবর্ণ জয়ন্তী উৎসব ইভেন্ট ও কর্মসূচী</h3>
-                    <p className="text-[11px] text-gray-400">মিলনমেলায় আয়োজিত উদযাপন ও সাংস্কৃতিক ইভেন্টগুলোর তালিকা</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                  {events.length === 0 ? (
-                    <div className="col-span-full text-center py-12 text-gray-450 font-mono text-xs">কোন কর্মসূচীর বিবরণ এখনো তৈরি করা হয়নি।</div>
-                  ) : (
-                    events.map((event) => (
-                      <div key={event.eventId} className="border border-gray-100 rounded-xl p-5 hover:border-primary/20 transition-all duration-300 flex items-start space-x-4 bg-gray-50 hover:bg-white hover:shadow-sm">
-                        <div className="bg-primary/10 p-2.5 rounded-lg text-primary shrink-0 mt-0.5">
-                          <Calendar className={`h-5 w-5 ${isApproved ? 'animate-bounce' : ''}`} />
-                        </div>
-                        <div className="space-y-1">
-                          <h4 className="font-extrabold text-gray-900 text-sm leading-tight">{event.title}</h4>
-                          <p className="text-xs text-gray-500 font-sans leading-relaxed pt-0.5">{event.description}</p>
-                          <div className="pt-2 text-[10px] text-amber-700 font-extrabold font-mono flex flex-wrap gap-x-3">
-                            <span>📅 {event.eventDate}</span>
-                            <span>📍 {event.location}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </motion.div>
+              <JubileeEvents 
+                events={events}
+                isApproved={isApproved}
+              />
             )}
 
             {/* SUBTAB: NOTICE BOARD PANEL */}
             {activeSubTab === 'notices' && (
-              <motion.div
-                key="subtab-notices"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="bg-white rounded-2xl shadow-sm border border-gray-150 p-6 sm:p-8 space-y-6"
-              >
-                <div className="flex items-center space-x-2 pb-3 border-b border-gray-100">
-                  <Bell className="h-5.5 w-5.5 text-primary" />
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-800">ঘোষণা ও নোটিশ বোর্ড (Notice Board)</h3>
-                    <p className="text-[11px] text-gray-400 font-sans">সুবর্ণ জয়ন্তী উদযাপন কমিটির সর্বশেষ অফিশিয়াল সিদ্ধান্ত ও সাধারণ নোটিশসমূহ</p>
-                  </div>
-                </div>
-
-                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
-                  {notices.length === 0 ? (
-                    <div className="text-center py-12 text-gray-400 font-sans text-xs">কোন নোটিশ বা ঘোষণা এই মুহূর্তে পাওয়া যায়নি। নতুন সিদ্ধান্তের জন্য পরবর্তীতে চেক করুন।</div>
-                  ) : (
-                    notices.map((notice) => (
-                      <div 
-                        key={notice.noticeId} 
-                        className="border border-gray-150 rounded-xl p-5 bg-slate-50/50 hover:bg-white hover:shadow-xs transition duration-200 border-l-4 border-l-primary"
-                      >
-                        <div className="flex justify-between items-center text-[10px] text-primary font-bold font-mono">
-                          <span className="bg-primary/10 px-2.5 py-0.5 rounded">📢 অফিসিয়াল ঘোষণা</span>
-                          <span>published: {notice.publishDate || 'Today'}</span>
-                        </div>
-                        <h4 className="font-extrabold text-gray-900 text-sm mt-3.5 leading-snug">{notice.title}</h4>
-                        <p className="text-gray-600 text-xs whitespace-pre-line leading-relaxed mt-2 font-sans">{notice.description}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </motion.div>
+              <NoticeBoard 
+                notices={notices}
+              />
             )}
 
             {/* SUBTAB: APPLY FORM PANEL WITH SUBMISSIONS LIST */}
@@ -1134,35 +637,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5">
                     <button
                       type="button"
-                      onClick={() => setActiveFormType('id_card')}
-                      className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${
-                        activeFormType === 'id_card'
-                          ? 'border-primary bg-primary/5 text-primary'
-                          : 'border-gray-150 bg-white hover:bg-gray-50 text-gray-700'
-                      }`}
-                    >
-                      <CreditCard className="h-5 w-5 mb-2 text-primary" />
-                      <strong className="text-xs font-extrabold block">ডিজিটাল আইডি কার্ড</strong>
-                      <span className="text-[9px] text-gray-400 block mt-0.5 leading-none">Alumni ID Card</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setActiveFormType('mentorship')}
-                      className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${
-                        activeFormType === 'mentorship'
-                          ? 'border-primary bg-primary/5 text-primary'
-                          : 'border-gray-150 bg-white hover:bg-gray-50 text-gray-700'
-                      }`}
-                    >
-                      <UserIcon className="h-5 w-5 mb-2 text-primary" />
-                      <strong className="text-xs font-extrabold block">ক্যারিয়ার মেন্টরশিপ</strong>
-                      <span className="text-[9px] text-gray-400 block mt-0.5 leading-none">Mentorship Volunteer</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setActiveFormType('magazine')}
+                      onClick={() => { setActiveFormType('magazine'); setActiveCustomFormStep(1); }}
                       className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${
                         activeFormType === 'magazine'
                           ? 'border-primary bg-primary/5 text-primary'
@@ -1181,6 +656,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
                         type="button"
                         onClick={() => {
                           setActiveFormType(frm.formId);
+                          setActiveCustomFormStep(1);
                           setDynamicFieldsData({});
                         }}
                         className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${
@@ -1197,10 +673,17 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
                   </div>
 
                   {/* Dynamic form area */}
-                  <form 
-                    onSubmit={['id_card', 'mentorship', 'magazine'].includes(activeFormType) ? handleApplicationSubmit : handleCustomFormSubmit} 
-                    className="bg-slate-50/50 rounded-xl p-5 sm:p-6 border border-gray-150 space-y-4 text-xs font-sans"
-                  >
+                  {(() => {
+                    const activeCustomRulesForm = !['id_card', 'mentorship', 'magazine'].includes(activeFormType) 
+                      ? customForms.find(f => f.formId === activeFormType) 
+                      : null;
+                    const totalStepsForActiveForm = activeCustomRulesForm?.totalSteps || 1;
+
+                    return (
+                      <form 
+                        onSubmit={['id_card', 'mentorship', 'magazine'].includes(activeFormType) ? handleAppFormSubmit : handleCustomFormSubmit} 
+                        className="bg-slate-50/50 rounded-xl p-5 sm:p-6 border border-gray-150 space-y-4 text-xs font-sans"
+                      >
                     <h4 className="font-extrabold text-sm text-gray-900 border-b border-gray-150 pb-2 mb-2">
                       {activeFormType === 'id_card' && '১. ডিজিটাল অ্যালামনাই আইডি কার্ডের আবেদন ফরম'}
                       {activeFormType === 'mentorship' && '২. সুবর্ণ জয়ন্তী ক্যারিয়ার মেন্টর হাব আবেদন ফরম'}
@@ -1377,66 +860,110 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
 
                     {/* SCHEMA-DRIVEN DYNAMIC FORM FIELDS SWITCHBOARD */}
                     {!['id_card', 'mentorship', 'magazine'].includes(activeFormType) && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 border border-gray-150 p-4.5 rounded-xl">
-                        
-                        {/* Beautiful Guidelines & Fee Rates Card inside the Active Dynamic Form */}
-                        <div className="sm:col-span-2 bg-indigo-50/50 rounded-xl border border-indigo-150 p-5 space-y-4 text-left font-sans shadow-3xs mb-2">
-                          <div className="flex items-center space-x-2 pb-2 border-b border-indigo-150">
-                            <BookOpen className="h-5 w-5 text-indigo-700 font-bold" />
-                            <h2 className="text-sm font-extrabold text-indigo-900">সরাসরি নিয়মাবলি ও ফি (Rules & Payment Guide)</h2>
-                          </div>
-                          
-                          <div className="space-y-3.5 text-xs leading-relaxed text-gray-700">
-                            <p className="font-semibold text-gray-750">
-                              উৎসবের নিরাপত্তা ও সুষ্ঠু পরিচালনার লক্ষ্যে প্রতিটি অ্যালামনাসকে অবশ্যই নির্দিষ্ট ফরম পূরণপূর্বক নিবন্ধন করতে হবে।
-                            </p>
-                            
-                            <ul className="space-y-2 font-sans">
-                              <li className="flex items-start space-x-2">
-                                <span className="bg-indigo-600 text-white font-bold rounded-full h-4.5 w-4.5 flex items-center justify-center text-[10px] shrink-0">১</span>
-                                <span className="text-gray-850"><strong>একক অ্যালামনাই ফি:</strong> ১০০০/- টাকা।</span>
-                              </li>
-                              <li className="flex items-start space-x-2">
-                                <span className="bg-indigo-600 text-white font-bold rounded-full h-4.5 w-4.5 flex items-center justify-center text-[10px] shrink-0">২</span>
-                                <span className="text-gray-850"><strong>প্রতিটি অতিরিক্ত অতিথি ফি:</strong> ৫০০/- টাকা।</span>
-                              </li>
-                              <li className="flex items-start space-x-2">
-                                <span className="bg-indigo-600 text-white font-bold rounded-full h-4.5 w-4.5 flex items-center justify-center text-[10px] shrink-0">৩</span>
-                                <span className="text-gray-850"><strong>উপহার সামগ্রী:</strong> সুবর্ণ জয়ন্তী টি-শার্ট, ক্যাপ, ব্যাজ ও স্মরণিকা ম্যাগাজিন।</span>
-                              </li>
-                            </ul>
-
-                            <div className="bg-white p-3.5 rounded-lg border border-indigo-100 shadow-3xs space-y-1.5 mt-2">
-                              <div className="text-[9.5px] font-mono tracking-wider font-extrabold text-gray-450 uppercase">বিকাশ / রকেট পেমেন্ট নম্বর:</div>
-                              <div className="text-sm font-extrabold text-indigo-800 font-mono">০১৭৪৫-৯৯০৫০৫ (পার্সোনাল)</div>
-                              <p className="text-[10px] text-gray-500 leading-normal">টাকা পাঠানোর পর ট্রানজেকশন আইডি (TrxID) অবশ্যই পেমেন্ট ফর্মে যুক্ত করতে হবে।</p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {customFields
+                      (() => {
+                        const currentRulesForm = customForms.find(f => f.formId === activeFormType);
+                        const targetFields = customFields
                           .filter(f => f.formId === activeFormType)
-                          .sort((a,b) => a.sortOrder - b.sortOrder)
-                          .map((f) => {
-                            const isReq = !!f.required;
-                            return (
-                              <div key={f.fieldId} className={`space-y-1.5 ${
-                                ['textarea', 'address', 'signature'].includes(f.fieldType) ? 'sm:col-span-2' : ''
-                              }`}>
-                                <label className="font-bold text-gray-700 block">
-                                  {f.label} {isReq && <span className="text-red-500">*</span>}
-                                </label>
+                          .sort((a,b) => a.sortOrder - b.sortOrder);
+                        
+                        const totalSteps = currentRulesForm?.totalSteps || 1;
+                        let fieldsToRender = targetFields;
+                        
+                        if (totalSteps > 1) {
+                          const chunkSize = Math.ceil(targetFields.length / totalSteps);
+                          const startIndex = (activeCustomFormStep - 1) * chunkSize;
+                          const endIndex = startIndex + chunkSize;
+                          fieldsToRender = targetFields.slice(startIndex, endIndex);
+                        }
 
-                                {f.fieldType === 'text' && (
-                                  <input
-                                    type="text"
-                                    required={isReq}
-                                    placeholder={f.placeholder || 'উত্তর লিখুন'}
-                                    value={dynamicFieldsData[f.fieldId] || ''}
-                                    onChange={e => setDynamicFieldsData(prev => ({ ...prev, [f.fieldId]: e.target.value }))}
-                                    className="w-full border border-gray-300 bg-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary"
-                                  />
-                                )}
+                        return (
+                          <div className="bg-slate-50 border border-gray-150 p-4 sm:p-5 rounded-xl space-y-5">
+                            
+                            {/* Step Indicator */}
+                            {totalSteps > 1 && (
+                              <div className="flex items-center justify-between border-b border-gray-150 pb-3">
+                                <span className="text-xs font-extrabold text-gray-500 uppercase">ধাপ {activeCustomFormStep} / {totalSteps}</span>
+                                <div className="flex space-x-1.5">
+                                  {Array.from({ length: totalSteps }).map((_, i) => (
+                                    <div key={i} className={`h-2 w-8 rounded-full ${activeCustomFormStep >= i + 1 ? 'bg-primary' : 'bg-gray-200'}`}></div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Beautiful Guidelines & Fee Rates Card inside the Active Dynamic Form */}
+                            {(!currentRulesForm || currentRulesForm.showRulesWidget !== false) && activeCustomFormStep === 1 && (
+                              <div className="bg-indigo-50/50 rounded-xl border border-indigo-150 p-5 space-y-4 text-left font-sans shadow-3xs mb-2">
+                                <div className="flex items-center space-x-2 pb-2 border-b border-indigo-150">
+                                  <BookOpen className="h-5 w-5 text-indigo-700 font-bold" />
+                                  <h2 className="text-sm font-extrabold text-indigo-900">সরাসরি নিয়মাবলি ও ফি (Rules & Payment Guide)</h2>
+                                </div>
+                                
+                                <div className="space-y-3.5 text-xs leading-relaxed text-gray-700">
+                                  <p className="font-semibold text-gray-750">
+                                    {currentRulesForm?.rulesIntro || "উৎসবের নিরাপত্তা ও সুষ্ঠু পরিচালনার লক্ষ্যে প্রতিটি অ্যালামনাসকে অবশ্যই নির্দিষ্ট ফরম পূরণপূর্বক নিবন্ধন করতে হবে।"}
+                                  </p>
+                                  
+                                  <ul className="space-y-2 font-sans">
+                                    {currentRulesForm?.rulesItems && currentRulesForm.rulesItems.length > 0 ? (
+                                      currentRulesForm.rulesItems.map((rule, index) => (
+                                        <li key={index} className="flex items-start space-x-2">
+                                          <span className="bg-indigo-600 text-white font-bold rounded-full h-4.5 w-4.5 flex items-center justify-center text-[10px] shrink-0">{index + 1}</span>
+                                          <span className="text-gray-850">{rule}</span>
+                                        </li>
+                                      ))
+                                    ) : (
+                                      <>
+                                        <li className="flex items-start space-x-2">
+                                          <span className="bg-indigo-600 text-white font-bold rounded-full h-4.5 w-4.5 flex items-center justify-center text-[10px] shrink-0">১</span>
+                                          <span className="text-gray-850"><strong>একক অ্যালামনাই ফি:</strong> ১০০০/- টাকা।</span>
+                                        </li>
+                                        <li className="flex items-start space-x-2">
+                                          <span className="bg-indigo-600 text-white font-bold rounded-full h-4.5 w-4.5 flex items-center justify-center text-[10px] shrink-0">২</span>
+                                          <span className="text-gray-850"><strong>প্রতিটি অতিরিক্ত অতিথি ফি:</strong> ৫০০/- টাকা।</span>
+                                        </li>
+                                        <li className="flex items-start space-x-2">
+                                          <span className="bg-indigo-600 text-white font-bold rounded-full h-4.5 w-4.5 flex items-center justify-center text-[10px] shrink-0">৩</span>
+                                          <span className="text-gray-850"><strong>উপহার সামগ্রী:</strong> সুবর্ণ জয়ন্তী টি-শার্ট, ক্যাপ, ব্যাজ ও স্মরণিকা ম্যাগাজিন।</span>
+                                        </li>
+                                      </>
+                                    )}
+                                  </ul>
+
+                                  <div className="bg-white p-3.5 rounded-lg border border-indigo-100 shadow-3xs space-y-1.5 mt-2">
+                                    <div className="text-[9.5px] font-mono tracking-wider font-extrabold text-gray-450 uppercase">বিকাশ / রকেট পেমেন্ট নম্বর:</div>
+                                    <div className="text-sm font-extrabold text-indigo-800 font-mono">
+                                      {currentRulesForm?.paymentNumber || "০১৭৪৫-৯৯০৫০৫ (পার্সোনাল)"}
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 leading-normal">
+                                      {currentRulesForm?.paymentInstructions || "টাকা পাঠানোর পর ট্রানজেকশন আইডি (TrxID) অবশ্যই পেমেন্ট ফর্মে যুক্ত করতে হবে।"}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              {fieldsToRender.map((f) => {
+                                const isReq = !!f.required;
+                                return (
+                                  <div key={f.fieldId} className={`space-y-1.5 ${
+                                    ['textarea', 'address', 'signature'].includes(f.fieldType) ? 'sm:col-span-2' : ''
+                                  }`}>
+                                    <label className="font-bold text-gray-700 block">
+                                      {f.label} {isReq && <span className="text-red-500">*</span>}
+                                    </label>
+
+                                    {f.fieldType === 'text' && (
+                                      <input
+                                        type="text"
+                                        required={isReq}
+                                        placeholder={f.placeholder || 'উত্তর লিখুন'}
+                                        value={dynamicFieldsData[f.fieldId] || ''}
+                                        onChange={e => setDynamicFieldsData(prev => ({ ...prev, [f.fieldId]: e.target.value }))}
+                                        className="w-full border border-gray-300 bg-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-primary"
+                                      />
+                                    )}
 
                                 {f.fieldType === 'textarea' && (
                                   <textarea
@@ -1691,28 +1218,65 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
                               </div>
                             );
                           })}
+                        </div>
                       </div>
-                    )}
+                    );
+                  })()
+                )}
 
-                    {/* Submit area for dynamic form */}
-                    <div className="flex justify-end pt-3 border-t border-gray-150">
-                      <button
-                        id="btn-dynamic-form-submit"
-                        type="submit"
-                        disabled={formSubmitting}
-                        className="bg-primary hover:bg-primary/95 text-white px-6 py-2.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 mt-1"
-                      >
-                        {formSubmitting ? (
-                          <span>দাখিল হচ্ছে...</span>
-                        ) : (
-                          <>
-                            <Send className="h-3.5 w-3.5" />
-                            <span>আবেদনপত্র দাখিল করুন</span>
-                          </>
-                        )}
-                      </button>
+                    {/* Submit or Navigation area for dynamic form */}
+                    <div className="flex justify-end pt-3 border-t border-gray-150 gap-2">
+                      {totalStepsForActiveForm > 1 && activeCustomFormStep > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveCustomFormStep(prev => prev - 1)}
+                          className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-2.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer mt-1"
+                        >
+                          পূর্ববর্তী ধাপ
+                        </button>
+                      )}
+                      
+                      {totalStepsForActiveForm > 1 && activeCustomFormStep < totalStepsForActiveForm ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                             // Minimal validation check (HTML5 standard form validity before proceeding)
+                             const formEl = e.currentTarget.closest('form');
+                             if (formEl && formEl.checkValidity()) {
+                               setActiveCustomFormStep(prev => prev + 1);
+                             } else if (formEl) {
+                               formEl.reportValidity();
+                             }
+                          }}
+                          className="bg-gray-800 hover:bg-gray-900 text-white px-6 py-2.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer mt-1"
+                        >
+                          পরবর্তী ধাপ
+                        </button>
+                      ) : (
+                        <button
+                          id="btn-dynamic-form-submit"
+                          type="submit"
+                          disabled={formSubmitting}
+                          className="bg-primary hover:bg-primary/95 text-white px-6 py-2.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 mt-1"
+                        >
+                          {formSubmitting ? (
+                            <span>দাখিল হচ্ছে...</span>
+                          ) : (
+                            <>
+                              <Send className="h-3.5 w-3.5" />
+                              <span>
+                                {!['id_card', 'mentorship', 'magazine'].includes(activeFormType)
+                                  ? (activeCustomRulesForm?.submitBtnText || 'আবেদনপত্র দাখিল করুন')
+                                  : 'আবেদনপত্র দাখিল করুন'}
+                              </span>
+                            </>
+                          )}
+                        </button>
+                      )}
                     </div>
                   </form>
+                    );
+                  })()}
                 </div>
 
                 {/* Applied Data (Show user's submitted data in real-time) */}
@@ -1905,172 +1469,25 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
               </motion.div>
             )}
 
-            {/* SUBTAB: PROFILE EDIT SETTINGS */}
+            {/* SUBTAB: PROFILE SETTINGS */}
             {activeSubTab === 'profile' && (
-              <motion.div
-                key="subtab-profile"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="bg-white rounded-2xl shadow-sm border border-gray-150 p-6 sm:p-8"
-              >
-                <div className="flex items-center space-x-2 pb-4 border-b">
-                  <Settings className="h-5 w-5 text-primary" />
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-800">অ্যালামনাই প্রোফিল সম্পাদন সেটিংস</h3>
-                    <p className="text-[11px] text-gray-400">আপনার ব্যক্তিগত প্রোফাইল বিবরণ সামঞ্জস্য করুন</p>
-                  </div>
-                </div>
-
-                <form onSubmit={handleProfileSave} className="space-y-5 pt-6 max-w-xl text-sm">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label id="lbl-edit-name" className="text-xs font-bold text-gray-500 uppercase">পূর্ণ নাম (Full Name) *</label>
-                      <input
-                        id="edit-profile-name"
-                        type="text"
-                        required
-                        value={name}
-                        onChange={e => setName(e.target.value)}
-                        className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-primary font-bold text-gray-800 text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label id="lbl-edit-mobile" className="text-xs font-bold text-gray-500 uppercase">যোগাযোগ মোবাইল নং *</label>
-                      <input
-                        id="edit-profile-mobile"
-                        type="tel"
-                        required
-                        value={mobile}
-                        className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-primary font-mono text-gray-800 text-sm"
-                        onChange={e => setMobile(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label id="lbl-edit-batch" className="text-xs font-bold text-gray-500 uppercase">এসএসসি পাসের ব্যাচ (SSC Passing Year)</label>
-                      <select
-                        id="edit-profile-batch"
-                        value={batch}
-                        onChange={e => setBatch(e.target.value)}
-                        className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-primary font-mono text-gray-800 text-sm cursor-pointer"
-                      >
-                        {Array.from({ length: 51 }, (_, i) => String(1976 + i)).map(year => (
-                          <option key={year} value={year}>{year} (SSC Batch)</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="sm:col-span-2 space-y-3 pt-3 border-t border-gray-100">
-                      <label className="text-xs font-extrabold text-gray-700 uppercase block">প্রোফাইল ছবি পরিবর্তন ও আপলোড (Profile Picture Upload)</label>
-                      
-                      <div className="flex flex-col md:flex-row items-stretch md:items-center gap-5 bg-slate-50/50 p-4 border border-gray-200 rounded-xl">
-                        {/* Live Preview Avatar */}
-                        <div className="flex flex-col items-center justify-center shrink-0 space-y-1.5 pb-2 md:pb-0 md:pr-4 border-b md:border-b-0 md:border-r border-gray-200">
-                          <label className="text-[10px] font-bold text-gray-400 font-sans uppercase">লাইভ প্রিভিউ (Preview)</label>
-                          <div className="relative group">
-                            <img
-                              src={photo || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150'}
-                              alt="Profile Preview"
-                              className="h-20 w-20 rounded-full object-cover border-4 border-white shadow-md bg-white"
-                              referrerPolicy="no-referrer"
-                            />
-                            {photo && (
-                              <button
-                                type="button"
-                                onClick={() => setPhoto('')}
-                                className="absolute -top-1 -right-1 bg-red-500 hover:bg-red-650 text-white rounded-full p-1 shadow-md transition-all hover:scale-110 cursor-pointer"
-                                title="ছবি মুছে ফেলুন"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            )}
-                          </div>
-                          {photo ? (
-                            <span className="text-[9px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">ছবি সেট হয়েছে</span>
-                          ) : (
-                            <span className="text-[9px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">ডিফল্ট অবতার</span>
-                          )}
-                        </div>
-
-                        {/* Drag and Drop zone */}
-                        <div className="flex-1">
-                          <div
-                            onDragOver={handleDragOver}
-                            onDragLeave={handleDragLeave}
-                            onDrop={handleDrop}
-                            className={`border-2 border-dashed rounded-xl p-5 text-center transition-all ${
-                              isDragging 
-                                ? 'border-primary bg-primary/10 scale-[0.99]' 
-                                : 'border-gray-200 hover:border-primary/50 bg-white hover:bg-slate-50/30'
-                            }`}
-                          >
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={handleFileChange}
-                              className="hidden"
-                              id="photo-upload-selector"
-                            />
-                            <label htmlFor="photo-upload-selector" className="cursor-pointer block space-y-1.5 focus:outline-none">
-                              <div className="flex justify-center">
-                                <span className={`p-2 rounded-full ${isDragging ? 'bg-primary/20 text-primary animate-bounce' : 'bg-slate-100 text-gray-500'}`}>
-                                  <Upload className="h-5 w-5" />
-                                </span>
-                              </div>
-                              <p className="text-xs text-gray-700 font-bold block leading-relaxed">
-                                এই বাক্সে আপনার ছবি <span className="text-primary underline">ড্র্যাগ অ্যান্ড ড্রপ করুন</span> অথবা <span className="text-amber-600 underline">ক্লিক করে ফাইল বা ক্যামেরা বাছুন</span>
-                              </p>
-                              <p className="text-[10px] text-gray-400 font-sans block leading-none">
-                                ফাইল সাইজ সর্বোচ্চ ২ মেগাবাইট (2MB limit). JPG, PNG, WebP ফরম্যাট সমর্থিত।
-                              </p>
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Manual Image URL Input fallback */}
-                      <div className="space-y-1 pt-1.5">
-                        <label id="lbl-edit-photo" className="text-[11px] font-bold text-gray-400 uppercase block">অথবা, সরাসরি ইন্টারনেট লিংক URL যুক্ত করুন (Image URL Link)</label>
-                        <input
-                          id="edit-profile-photo"
-                          type="url"
-                          placeholder="https://images.unsplash.com/photo-..."
-                          value={photo}
-                          onChange={e => setPhoto(e.target.value)}
-                          className="w-full border border-gray-200 rounded-lg px-3.5 py-2.5 focus:outline-none focus:border-primary text-xs font-mono text-gray-600 bg-white shadow-xs"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-                    <button
-                      type="button"
-                      onClick={() => setActiveSubTab('overview')}
-                      className="px-5 py-2.5 rounded-lg border text-xs font-bold text-gray-500 hover:bg-gray-50 transition"
-                    >
-                      বাতিল (Cancel)
-                    </button>
-                    <button
-                      id="btn-profile-submit-save"
-                      type="submit"
-                      disabled={saving}
-                      className="bg-primary hover:bg-primary/95 text-white px-6 py-2.5 rounded-lg font-bold flex items-center space-x-1.5 text-xs shadow-md transition disabled:opacity-50"
-                    >
-                      {saving ? (
-                        <span>সংরক্ষণ হচ্ছে...</span>
-                      ) : (
-                        <>
-                          <Save className="h-4.5 w-4.5" />
-                          <span>তথ্য সংরক্ষণ করুন</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              </motion.div>
+              <ProfileSettings 
+                currentUser={currentUser}
+                name={name}
+                setName={setName}
+                mobile={mobile}
+                setMobile={setMobile}
+                batch={batch}
+                setBatch={setBatch}
+                photo={photo}
+                saving={saving}
+                handleSaveProfile={handleSaveProfile}
+                handleFileChange={handleFileChange}
+                isDragging={isDragging}
+                handleDragOver={handleDragOver}
+                handleDragLeave={handleDragLeave}
+                handleDrop={handleDrop}
+              />
             )}
 
             {/* EDIT CLASSIC SUBMISSION MODAL */}
@@ -2485,6 +1902,25 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ setCurrentTab }) =
         </main>
 
       </div>
+      {isPreviewing && (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-lg w-full">
+            <h2 className="text-xl font-bold mb-4">ফর্মের তথ্য যাচাই (Preview)</h2>
+            <div className="space-y-2 mb-6 max-h-[60vh] overflow-y-auto">
+              {Object.entries(dynamicFieldsData).map(([fieldId, value]) => (
+                <div key={fieldId} className="flex justify-between border-b py-2 text-sm">
+                   <span className="font-semibold text-gray-500">{customFields.find(f => f.fieldId === fieldId)?.label || fieldId}</span>
+                   <span className="font-medium text-gray-800">{value instanceof File ? value.name : String(value)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <button onClick={() => setIsPreviewing(false)} className="px-4 py-2 border rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100">বাতিল</button>
+              <button onClick={() => handleCustomFormSubmit()} className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/95">নিশ্চিত করুন</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
